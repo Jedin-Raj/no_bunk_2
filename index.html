@@ -1,1335 +1,756 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AttendLink v2 — Smart Biometric Attendance</title>
-    <meta name="description"
-        content="AttendLink v2: A modern, biometric-powered smart attendance management system for institutions." />
-
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons CDN -->
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <!-- Canvas Confetti CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
-    <!-- Google Fonts: Plus Jakarta Sans -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet" />
-
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
-                    animation: {
-                        'fade-in': 'fadeIn 0.3s ease-out',
-                        'slide-up': 'slideUp 0.35s cubic-bezier(0.16,1,0.3,1)',
-                        'shimmer': 'shimmer 1.5s infinite',
-                    },
-                    keyframes: {
-                        fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
-                        slideUp: { '0%': { opacity: 0, transform: 'translateY(20px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
-                        shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
-                    }
-                }
-            }
-        };
-    </script>
-
-    <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            background: #090d16;
-            color: #f1f5f9;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
-
-        @keyframes spin {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes shimmer {
-            0% {
-                background-position: -200% 0;
-            }
-
-            100% {
-                background-position: 200% 0;
-            }
-        }
-
-        @keyframes fp-scan {
-
-            0%,
-            100% {
-                opacity: 0.3;
-            }
-
-            50% {
-                opacity: 1;
-            }
-        }
-
-        @keyframes pulseGlow {
-
-            0%,
-            100% {
-                box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
-            }
-
-            50% {
-                box-shadow: 0 0 0 12px rgba(99, 102, 241, 0);
-            }
-        }
-
-        .view {
-            display: none;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .view.active {
-            display: flex;
-        }
-
-        .skeleton {
-            background: linear-gradient(90deg, #1e293b 25%, #2d3f55 50%, #1e293b 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: 6px;
-        }
-
-        .gauge-ring {
-            transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease;
-        }
-
-        #toast-container {
-            position: fixed;
-            top: 1.25rem;
-            right: 1.25rem;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            pointer-events: none;
-        }
-
-        .toast {
-            padding: 0.75rem 1.25rem;
-            border-radius: 10px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            min-width: 280px;
-            max-width: 380px;
-            pointer-events: all;
-            animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            transition: opacity 0.3s, transform 0.3s;
-        }
-
-        .toast.success {
-            background: #064e3b;
-            border: 1px solid #059669;
-            color: #6ee7b7;
-        }
-
-        .toast.error {
-            background: #4c0519;
-            border: 1px solid #e11d48;
-            color: #fda4af;
-        }
-
-        .toast.info {
-            background: #1e1b4b;
-            border: 1px solid #6366f1;
-            color: #a5b4fc;
-        }
-
-        .toast.warning {
-            background: #451a03;
-            border: 1px solid #d97706;
-            color: #fcd34d;
-        }
-
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(6px);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-            animation: fadeIn 0.2s ease-out;
-        }
-
-        .modal-box {
-            background: #111827;
-            border: 1px solid #334155;
-            border-radius: 16px;
-            padding: 2rem;
-            width: 100%;
-            max-width: 520px;
-            animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        #sidebar {
-            width: 260px;
-            flex-shrink: 0;
-            background: #0a0f1e;
-            border-right: 1px solid #1e293b;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            position: sticky;
-            top: 0;
-            overflow: hidden;
-        }
-
-        .nav-link {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            border-radius: 10px;
-            color: #64748b;
-            font-weight: 500;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 2px;
-            border: 1px solid transparent;
-            background: none;
-            width: 100%;
-            text-align: left;
-        }
-
-        .nav-link:hover {
-            background: #1e293b;
-            color: #e2e8f0;
-        }
-
-        .nav-link.active {
-            background: linear-gradient(135deg, rgba(49, 46, 129, 0.6), rgba(30, 27, 75, 0.6));
-            color: #a5b4fc;
-            border-color: rgba(67, 56, 202, 0.5);
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .data-table th {
-            background: #0a0f1e;
-            color: #475569;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            padding: 0.8rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid #1e293b;
-            white-space: nowrap;
-        }
-
-        .data-table td {
-            padding: 0.8rem 1rem;
-            border-bottom: 1px solid rgba(30, 41, 59, 0.5);
-            color: #cbd5e1;
-            font-size: 0.875rem;
-            vertical-align: middle;
-        }
-
-        .data-table tbody tr {
-            transition: background 0.15s;
-        }
-
-        .data-table tbody tr:hover {
-            background: rgba(30, 41, 59, 0.4);
-        }
-
-        .data-table tbody tr:last-child td {
-            border-bottom: none;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            padding: 0.2rem 0.6rem;
-            border-radius: 999px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .badge-present {
-            background: rgba(5, 150, 105, 0.15);
-            color: #34d399;
-            border: 1px solid rgba(5, 150, 105, 0.25);
-        }
-
-        .badge-late {
-            background: rgba(217, 119, 6, 0.15);
-            color: #fbbf24;
-            border: 1px solid rgba(217, 119, 6, 0.25);
-        }
-
-        .badge-absent {
-            background: rgba(225, 29, 72, 0.1);
-            color: #f87171;
-            border: 1px solid rgba(225, 29, 72, 0.2);
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            padding: 0.55rem 1.1rem;
-            border-radius: 9px;
-            font-weight: 600;
-            font-size: 0.875rem;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s;
-            white-space: nowrap;
-            font-family: inherit;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #4f46e5, #6366f1);
-            color: #fff;
-            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: linear-gradient(135deg, #4338ca, #4f46e5);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
-        }
-
-        .btn-danger {
-            background: rgba(225, 29, 72, 0.12);
-            color: #f87171;
-            border: 1px solid rgba(225, 29, 72, 0.25);
-        }
-
-        .btn-danger:hover:not(:disabled) {
-            background: rgba(225, 29, 72, 0.22);
-        }
-
-        .btn-secondary {
-            background: #1e293b;
-            color: #94a3b8;
-            border: 1px solid #334155;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-            background: #334155;
-            color: #e2e8f0;
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #059669, #10b981);
-            color: #fff;
-            box-shadow: 0 4px 15px rgba(5, 150, 105, 0.25);
-        }
-
-        .btn-success:hover:not(:disabled) {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(5, 150, 105, 0.35);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed !important;
-        }
-
-        .form-input {
-            background: #0f172a;
-            border: 1px solid #334155;
-            color: #e2e8f0;
-            border-radius: 9px;
-            padding: 0.6rem 0.9rem;
-            font-size: 0.9rem;
-            width: 100%;
-            outline: none;
-            font-family: inherit;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .form-input:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-        }
-
-        .form-input::placeholder {
-            color: #334155;
-        }
-
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
-            filter: invert(0.5) sepia(0.3);
-            cursor: pointer;
-        }
-
-        .toggle {
-            position: relative;
-            display: inline-block;
-            width: 44px;
-            height: 24px;
-        }
-
-        .toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-            position: absolute;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            inset: 0;
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 999px;
-            transition: 0.3s;
-        }
-
-        .toggle-slider::before {
-            content: '';
-            position: absolute;
-            height: 16px;
-            width: 16px;
-            left: 3px;
-            bottom: 3px;
-            background: #475569;
-            border-radius: 50%;
-            transition: 0.3s;
-        }
-
-        .toggle input:checked+.toggle-slider {
-            background: #4f46e5;
-            border-color: #6366f1;
-        }
-
-        .toggle input:checked+.toggle-slider::before {
-            transform: translateX(20px);
-            background: #fff;
-        }
-
-        .progress-bar {
-            height: 5px;
-            background: #1e293b;
-            border-radius: 999px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            border-radius: 999px;
-            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .metric-card {
-            background: #111827;
-            border: 1px solid #1e293b;
-            border-radius: 14px;
-            padding: 1.25rem 1.5rem;
-            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-        }
-
-        .metric-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            border-color: #334155;
-        }
-
-        #login-view {
-            background: #090d16;
-            position: relative;
-            overflow: hidden;
-        }
-
-        #login-view::before {
-            content: '';
-            position: absolute;
-            width: 700px;
-            height: 700px;
-            background: radial-gradient(circle, rgba(79, 70, 229, 0.1) 0%, transparent 70%);
-            border-radius: 50%;
-            top: -200px;
-            left: -200px;
-            pointer-events: none;
-        }
-
-        #login-view::after {
-            content: '';
-            position: absolute;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(16, 185, 129, 0.07) 0%, transparent 70%);
-            border-radius: 50%;
-            bottom: -150px;
-            right: -150px;
-            pointer-events: none;
-        }
-
-        .step-dot {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 700;
-            flex-shrink: 0;
-            transition: all 0.3s;
-        }
-
-        .step-dot.active {
-            background: #4f46e5;
-            color: #fff;
-            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.25);
-        }
-
-        .step-dot.done {
-            background: #059669;
-            color: #fff;
-        }
-
-        .step-dot.waiting {
-            background: #1e293b;
-            color: #475569;
-            border: 1px solid #334155;
-        }
-
-        .step-line {
-            height: 2px;
-            flex: 1;
-            background: #1e293b;
-            border-radius: 1px;
-            transition: background 0.4s;
-        }
-
-        .step-line.done {
-            background: #059669;
-        }
-
-        .fp-scanning {
-            animation: fp-scan 1.2s ease-in-out infinite;
-        }
-
-        .pulse-glow {
-            animation: pulseGlow 2s ease-in-out infinite;
-        }
-
-        @media (max-width: 768px) {
-            #admin-view {
-                flex-direction: column;
-            }
-
-            #sidebar {
-                width: 100%;
-                height: auto;
-                position: relative;
-                flex-direction: column;
-            }
-
-            #sidebar nav {
-                flex-direction: row;
-                overflow-x: auto;
-                padding: 0.5rem;
-                gap: 0.25rem;
-            }
-
-            #sidebar nav .nav-link {
-                white-space: nowrap;
-                margin-bottom: 0;
-                flex-shrink: 0;
-            }
-
-            #sidebar .sidebar-footer {
-                padding: 0.5rem 1rem;
-            }
-
-            .modal-box {
-                padding: 1.25rem;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendLink v2 — Smart Biometric Attendance</title>
+  <meta name="description" content="AttendLink v2: A modern, biometric-powered smart attendance management system for institutions." />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-out',
+            'slide-up': 'slideUp 0.35s cubic-bezier(0.16,1,0.3,1)',
+            'shimmer': 'shimmer 1.5s infinite',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
+            slideUp: { '0%': { opacity: 0, transform: 'translateY(20px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
+            shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; min-height: 100vh; background: #090d16; color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    @keyframes fp-scan { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+    @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); } 50% { box-shadow: 0 0 0 12px rgba(99,102,241,0); } }
+
+    .view { display: none; animation: fadeIn 0.3s ease-out; }
+    .view.active { display: flex; }
+
+    .skeleton { background: linear-gradient(90deg, #1e293b 25%, #2d3f55 50%, #1e293b 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+
+    .gauge-ring { transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1), stroke 0.5s ease; }
+
+    #toast-container { position: fixed; top: 1.25rem; right: 1.25rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+    .toast { padding: 0.75rem 1.25rem; border-radius: 10px; font-size: 0.875rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem; min-width: 280px; max-width: 380px; pointer-events: all; animation: slideUp 0.35s cubic-bezier(0.16,1,0.3,1); box-shadow: 0 8px 32px rgba(0,0,0,0.5); transition: opacity 0.3s, transform 0.3s; }
+    .toast.success { background: #064e3b; border: 1px solid #059669; color: #6ee7b7; }
+    .toast.error   { background: #4c0519; border: 1px solid #e11d48; color: #fda4af; }
+    .toast.info    { background: #1e1b4b; border: 1px solid #6366f1; color: #a5b4fc; }
+    .toast.warning { background: #451a03; border: 1px solid #d97706; color: #fcd34d; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; animation: fadeIn 0.2s ease-out; }
+    .modal-box { background: #111827; border: 1px solid #334155; border-radius: 16px; padding: 2rem; width: 100%; max-width: 520px; animation: slideUp 0.35s cubic-bezier(0.16,1,0.3,1); max-height: 90vh; overflow-y: auto; }
+
+    #sidebar { width: 260px; flex-shrink: 0; background: #0a0f1e; border-right: 1px solid #1e293b; display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; overflow: hidden; }
+    .nav-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 10px; color: #64748b; font-weight: 500; font-size: 0.875rem; cursor: pointer; transition: all 0.2s; margin-bottom: 2px; border: 1px solid transparent; background: none; width: 100%; text-align: left; }
+    .nav-link:hover { background: #1e293b; color: #e2e8f0; }
+    .nav-link.active { background: linear-gradient(135deg, rgba(49,46,129,0.6), rgba(30,27,75,0.6)); color: #a5b4fc; border-color: rgba(67,56,202,0.5); }
+
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { background: #0a0f1e; color: #475569; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid #1e293b; white-space: nowrap; }
+    .data-table td { padding: 0.8rem 1rem; border-bottom: 1px solid rgba(30,41,59,0.5); color: #cbd5e1; font-size: 0.875rem; vertical-align: middle; }
+    .data-table tbody tr { transition: background 0.15s; }
+    .data-table tbody tr:hover { background: rgba(30,41,59,0.4); }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+
+    .badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+    .badge-present { background: rgba(5,150,105,0.15); color: #34d399; border: 1px solid rgba(5,150,105,0.25); }
+    .badge-late    { background: rgba(217,119,6,0.15);  color: #fbbf24; border: 1px solid rgba(217,119,6,0.25);  }
+    .badge-absent  { background: rgba(225,29,72,0.1);   color: #f87171; border: 1px solid rgba(225,29,72,0.2);   }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem 1.1rem; border-radius: 9px; font-weight: 600; font-size: 0.875rem; cursor: pointer; border: none; transition: all 0.2s; white-space: nowrap; font-family: inherit; }
+    .btn-primary   { background: linear-gradient(135deg, #4f46e5, #6366f1); color: #fff; box-shadow: 0 4px 15px rgba(79,70,229,0.3); }
+    .btn-primary:hover:not(:disabled)   { background: linear-gradient(135deg, #4338ca, #4f46e5); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,70,229,0.4); }
+    .btn-danger    { background: rgba(225,29,72,0.12); color: #f87171; border: 1px solid rgba(225,29,72,0.25); }
+    .btn-danger:hover:not(:disabled)    { background: rgba(225,29,72,0.22); }
+    .btn-secondary { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+    .btn-secondary:hover:not(:disabled) { background: #334155; color: #e2e8f0; }
+    .btn-success   { background: linear-gradient(135deg, #059669, #10b981); color: #fff; box-shadow: 0 4px 15px rgba(5,150,105,0.25); }
+    .btn-success:hover:not(:disabled)   { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(5,150,105,0.35); }
+    .btn:disabled  { opacity: 0.5; cursor: not-allowed !important; }
+
+    .form-input { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 9px; padding: 0.6rem 0.9rem; font-size: 0.9rem; width: 100%; outline: none; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s; }
+    .form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+    .form-input::placeholder { color: #334155; }
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.5) sepia(0.3); cursor: pointer; }
+
+    .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: #1e293b; border: 1px solid #334155; border-radius: 999px; transition: 0.3s; }
+    .toggle-slider::before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #475569; border-radius: 50%; transition: 0.3s; }
+    .toggle input:checked + .toggle-slider { background: #4f46e5; border-color: #6366f1; }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(20px); background: #fff; }
+
+    .progress-bar { height: 5px; background: #1e293b; border-radius: 999px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 999px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+
+    .metric-card { background: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 1.25rem 1.5rem; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-color: #334155; }
+
+    #login-view { background: #090d16; position: relative; overflow: hidden; }
+    #login-view::before { content: ''; position: absolute; width: 700px; height: 700px; background: radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%); border-radius: 50%; top: -200px; left: -200px; pointer-events: none; }
+    #login-view::after  { content: ''; position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(16,185,129,0.07) 0%, transparent 70%); border-radius: 50%; bottom: -150px; right: -150px; pointer-events: none; }
+
+    .step-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; transition: all 0.3s; }
+    .step-dot.active  { background: #4f46e5; color: #fff; box-shadow: 0 0 0 4px rgba(79,70,229,0.25); }
+    .step-dot.done    { background: #059669; color: #fff; }
+    .step-dot.waiting { background: #1e293b; color: #475569; border: 1px solid #334155; }
+    .step-line { height: 2px; flex: 1; background: #1e293b; border-radius: 1px; transition: background 0.4s; }
+    .step-line.done { background: #059669; }
+
+    .fp-scanning { animation: fp-scan 1.2s ease-in-out infinite; }
+    .pulse-glow  { animation: pulseGlow 2s ease-in-out infinite; }
+
+    @media (max-width: 768px) {
+      #admin-view { flex-direction: column; }
+      #sidebar { width: 100%; height: auto; position: relative; flex-direction: column; }
+      #sidebar nav { flex-direction: row; overflow-x: auto; padding: 0.5rem; gap: 0.25rem; }
+      #sidebar nav .nav-link { white-space: nowrap; margin-bottom: 0; flex-shrink: 0; }
+      #sidebar .sidebar-footer { padding: 0.5rem 1rem; }
+      .modal-box { padding: 1.25rem; }
+    }
+  </style>
 </head>
-
 <body class="dark">
 
-    <div id="toast-container"></div>
-    <div id="modal-container"></div>
+<div id="toast-container"></div>
+<div id="modal-container"></div>
 
-    <!-- VIEW: LOGIN -->
-    <div id="login-view" class="view active min-h-screen items-center justify-center">
-        <div class="relative z-10 w-full max-w-md mx-auto px-4 py-8">
+<!-- VIEW: LOGIN -->
+<div id="login-view" class="view active min-h-screen items-center justify-center">
+  <div class="relative z-10 w-full max-w-md mx-auto px-4 py-8">
 
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 pulse-glow"
-                    style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid rgba(99,102,241,0.4);">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="1.5"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <path
-                            d="M12 2C8.686 2 5 4.686 5 9c0 2.686 1.111 4.89 2.778 6.444L12 22l4.222-6.556C17.889 13.89 19 11.686 19 9c0-4.314-3.686-7-7-7z" />
-                        <circle cx="12" cy="9" r="2.5" fill="rgba(165,180,252,0.3)" />
-                        <path d="M8.5 6.5C9.5 5 10.7 4.2 12 4.2" opacity="0.6" />
-                        <path d="M15.5 6.5C14.5 5 13.3 4.2 12 4.2" opacity="0.6" />
-                    </svg>
-                </div>
-                <h1 class="text-3xl font-black tracking-wider"
-                    style="background: linear-gradient(135deg, #e0e7ff, #a5b4fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-                    ATTENDLINK</h1>
-                <p class="text-slate-500 text-sm mt-1.5">Smart Biometric Attendance System &nbsp;<span
-                        class="text-indigo-500 font-bold">v2</span></p>
-            </div>
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 pulse-glow" style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid rgba(99,102,241,0.4);">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2C8.686 2 5 4.686 5 9c0 2.686 1.111 4.89 2.778 6.444L12 22l4.222-6.556C17.889 13.89 19 11.686 19 9c0-4.314-3.686-7-7-7z"/>
+          <circle cx="12" cy="9" r="2.5" fill="rgba(165,180,252,0.3)"/>
+          <path d="M8.5 6.5C9.5 5 10.7 4.2 12 4.2" opacity="0.6"/>
+          <path d="M15.5 6.5C14.5 5 13.3 4.2 12 4.2" opacity="0.6"/>
+        </svg>
+      </div>
+      <h1 class="text-3xl font-black tracking-wider" style="background: linear-gradient(135deg, #e0e7ff, #a5b4fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">ATTENDLINK</h1>
+      <p class="text-slate-500 text-sm mt-1.5">Smart Biometric Attendance System &nbsp;<span class="text-indigo-500 font-bold">v2</span></p>
+    </div>
 
-            <div class="rounded-2xl p-8"
-                style="background: rgba(17,24,39,0.95); border: 1px solid #1e293b; box-shadow: 0 30px 70px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02);">
-                <h2 class="text-xl font-bold text-white mb-6">Sign In to Your Account</h2>
+    <div class="rounded-2xl p-8" style="background: rgba(17,24,39,0.95); border: 1px solid #1e293b; box-shadow: 0 30px 70px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02);">
+      <h2 class="text-xl font-bold text-white mb-6">Sign In to Your Account</h2>
 
-                <div id="login-error" class="hidden mb-4 p-3 rounded-xl text-sm flex items-center gap-2.5"
-                    style="background: rgba(225,29,72,0.1); border: 1px solid rgba(225,29,72,0.25); color: #fda4af;">
-                    <i data-lucide="alert-circle" style="width:16px;height:16px;flex-shrink:0;"></i>
-                    <span id="login-error-msg">Invalid credentials. Please try again.</span>
-                </div>
+      <div id="login-error" class="hidden mb-4 p-3 rounded-xl text-sm flex items-center gap-2.5" style="background: rgba(225,29,72,0.1); border: 1px solid rgba(225,29,72,0.25); color: #fda4af;">
+        <i data-lucide="alert-circle" style="width:16px;height:16px;flex-shrink:0;"></i>
+        <span id="login-error-msg">Invalid credentials. Please try again.</span>
+      </div>
 
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Username
-                            / Roll No</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600"><i data-lucide="user"
-                                    style="width:16px;height:16px;"></i></span>
-                            <input type="text" id="login-username" class="form-input pl-10"
-                                placeholder="Enter username or roll number" autocomplete="username" />
-                        </div>
-                    </div>
-                    <div>
-                        <label
-                            class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Password</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600"><i data-lucide="lock"
-                                    style="width:16px;height:16px;"></i></span>
-                            <input type="password" id="login-password" class="form-input pl-10 pr-10"
-                                placeholder="Enter your password" autocomplete="current-password" />
-                            <button type="button" id="toggle-pw"
-                                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-300 transition-colors p-0 bg-transparent border-none cursor-pointer">
-                                <i data-lucide="eye" style="width:16px;height:16px;"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <button id="login-btn" class="btn btn-primary w-full py-3 mt-2 text-sm" onclick="doLogin()">
-                        <i data-lucide="fingerprint" style="width:18px;height:18px;"></i>
-                        Authenticate
-                    </button>
-                </div>
-
-                <div class="mt-6 pt-5" style="border-top: 1px solid #1e293b;">
-                    <p class="text-center text-xs text-slate-700">Secured by biometric identity verification
-                        &nbsp;·&nbsp; AttendLink v2</p>
-                </div>
-            </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Username / Roll No</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600"><i data-lucide="user" style="width:16px;height:16px;"></i></span>
+            <input type="text" id="login-username" class="form-input pl-10" placeholder="Enter username or roll number" autocomplete="username" />
+          </div>
         </div>
-    </div>
-
-    <!-- VIEW: ADMIN -->
-    <div id="admin-view" class="view min-h-screen" style="flex-direction:row; align-items:stretch;">
-
-        <!-- SIDEBAR -->
-        <aside id="sidebar">
-            <div class="p-5 flex-shrink-0" style="border-bottom: 1px solid #1e293b;">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid rgba(99,102,241,0.35);">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path
-                                d="M12 2C8.686 2 5 4.686 5 9c0 2.686 1.111 4.89 2.778 6.444L12 22l4.222-6.556C17.889 13.89 19 11.686 19 9c0-4.314-3.686-7-7-7z" />
-                            <circle cx="12" cy="9" r="2.2" />
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="font-black text-white text-sm tracking-widest">ATTENDLINK</div>
-                        <div class="text-slate-600" style="font-size:0.65rem; line-height:1.2;">Because every presence
-                            matters...</div>
-                    </div>
-                </div>
-            </div>
-
-            <nav class="flex-1 p-3 overflow-y-auto" style="display:flex;flex-direction:column;">
-                <div class="text-slate-700 font-bold uppercase tracking-widest mb-3 px-2" style="font-size:0.65rem;">
-                    Navigation</div>
-                <button class="nav-link active" id="nav-daily" onclick="switchAdminTab('daily')">
-                    <i data-lucide="calendar-check-2" style="width:17px;height:17px;"></i> Daily Attendance
-                </button>
-                <button class="nav-link" id="nav-directory" onclick="switchAdminTab('directory')">
-                    <i data-lucide="users" style="width:17px;height:17px;"></i> Student Directory
-                </button>
-                <button class="nav-link" id="nav-settings" onclick="switchAdminTab('settings')">
-                    <i data-lucide="settings-2" style="width:17px;height:17px;"></i> Settings
-                </button>
-            </nav>
-
-            <div class="sidebar-footer p-4 flex-shrink-0" style="border-top: 1px solid #1e293b;">
-                <div class="flex items-center gap-3 mb-3">
-                    <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                        id="admin-avatar"
-                        style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #e0e7ff;">A</div>
-                    <div style="overflow:hidden;">
-                        <div class="text-sm font-semibold text-white truncate" id="sidebar-name">Administrator</div>
-                        <div class="text-slate-600" style="font-size:0.7rem;">System Admin</div>
-                    </div>
-                </div>
-                <button class="btn btn-secondary w-full text-xs py-2" onclick="doLogout()">
-                    <i data-lucide="log-out" style="width:14px;height:14px;"></i> Sign Out
-                </button>
-            </div>
-        </aside>
-
-        <!-- MAIN -->
-        <main class="flex-1 overflow-y-auto" style="background:#090d16; min-height:100vh;">
-
-            <!-- Daily Attendance Tab -->
-            <div id="tab-daily" class="p-6 lg:p-8">
-                <div class="mb-6">
-                    <h1 class="text-2xl font-black text-white">Daily Attendance</h1>
-                    <p class="text-slate-500 text-sm mt-1">Monitor real-time fingerprint-verified attendance logs.</p>
-                </div>
-
-                <!-- Date Nav -->
-                <div class="flex flex-wrap items-center gap-3 mb-6 p-4 rounded-xl"
-                    style="background:#0d1526; border:1px solid #1e293b;">
-                    <button class="btn btn-secondary text-xs" onclick="stepDate(-1)">
-                        <i data-lucide="chevron-left" style="width:14px;height:14px;"></i> Prev Day
-                    </button>
-                    <input type="date" id="date-picker" class="form-input text-sm" style="width:auto;"
-                        onchange="fetchDailyLogs()" />
-                    <button class="btn btn-secondary text-xs" onclick="goToday()">
-                        <i data-lucide="calendar" style="width:14px;height:14px;"></i> Today
-                    </button>
-                    <button class="btn btn-secondary text-xs" onclick="stepDate(1)">
-                        Next Day <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
-                    </button>
-                    <div class="ml-auto flex items-center gap-2.5">
-                        <label class="toggle" title="Auto-Refresh every 10s">
-                            <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh()" />
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="text-slate-500 text-xs">Auto-Refresh</span>
-                        <span id="refresh-indicator" class="inline-block w-2 h-2 rounded-full"
-                            style="background:#334155;"></span>
-                    </div>
-                </div>
-
-                <!-- Metrics -->
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div class="metric-card">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center"
-                                style="background:#1e293b;"><i data-lucide="users"
-                                    style="width:15px;height:15px;color:#64748b;"></i></div>
-                            <span class="font-bold uppercase tracking-wider text-slate-600"
-                                style="font-size:0.65rem;">Total</span>
-                        </div>
-                        <div class="text-3xl font-black text-white" id="m-total">—</div>
-                        <div class="text-slate-600 mt-1" style="font-size:0.72rem;">Enrolled Students</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center"
-                                style="background:rgba(5,150,105,0.12);"><i data-lucide="check-circle-2"
-                                    style="width:15px;height:15px;color:#34d399;"></i></div>
-                            <span class="font-bold uppercase tracking-wider text-emerald-700"
-                                style="font-size:0.65rem;">Present</span>
-                        </div>
-                        <div class="text-3xl font-black text-emerald-400" id="m-present">—</div>
-                        <div class="text-slate-600 mt-1" style="font-size:0.72rem;">On Time</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center"
-                                style="background:rgba(217,119,6,0.12);"><i data-lucide="clock-4"
-                                    style="width:15px;height:15px;color:#fbbf24;"></i></div>
-                            <span class="font-bold uppercase tracking-wider text-amber-700"
-                                style="font-size:0.65rem;">Late</span>
-                        </div>
-                        <div class="text-3xl font-black text-amber-400" id="m-late">—</div>
-                        <div class="text-slate-600 mt-1" style="font-size:0.72rem;">Arrived Late</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center"
-                                style="background:rgba(225,29,72,0.1);"><i data-lucide="x-circle"
-                                    style="width:15px;height:15px;color:#f87171;"></i></div>
-                            <span class="font-bold uppercase tracking-wider text-rose-700"
-                                style="font-size:0.65rem;">Absent</span>
-                        </div>
-                        <div class="text-3xl font-black text-rose-400" id="m-absent">—</div>
-                        <div class="text-slate-600 mt-1" style="font-size:0.72rem;">Not Scanned</div>
-                    </div>
-                </div>
-
-                <!-- Table Controls -->
-                <div class="flex flex-wrap items-center gap-3 mb-3">
-                    <div class="relative" style="min-width:200px;max-width:300px;flex:1;">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"><i
-                                data-lucide="search" style="width:14px;height:14px;"></i></span>
-                        <input type="text" id="daily-search" class="form-input pl-9 text-sm"
-                            placeholder="Search by name or roll no…" oninput="filterDailyTable()" />
-                    </div>
-                    <button class="btn btn-secondary text-xs ml-auto" onclick="exportDailyCSV()">
-                        <i data-lucide="download" style="width:14px;height:14px;"></i> Export CSV
-                    </button>
-                </div>
-
-                <!-- Table -->
-                <div class="rounded-xl overflow-hidden" style="border:1px solid #1e293b;">
-                    <div class="overflow-x-auto">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Fingerprint ID</th>
-                                    <th>Name</th>
-                                    <th>Roll No</th>
-                                    <th>Date</th>
-                                    <th>Time</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="daily-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-16 text-slate-600">
-                                        <i data-lucide="loader-2"
-                                            style="width:20px;height:20px;display:inline;margin-right:8px;animation:spin 1s linear infinite;"></i>Loading…
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Student Directory Tab -->
-            <div id="tab-directory" class="p-6 lg:p-8 hidden">
-                <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
-                    <div>
-                        <h1 class="text-2xl font-black text-white">Student Directory</h1>
-                        <p class="text-slate-500 text-sm mt-1">Manage biometric enrollments, credentials, and attendance
-                            rates.</p>
-                    </div>
-                    <button class="btn btn-primary text-sm" onclick="openEnrollModal()">
-                        <i data-lucide="user-plus" style="width:16px;height:16px;"></i> Enroll New Student
-                    </button>
-                </div>
-
-                <div class="flex items-center gap-3 p-4 rounded-xl mb-5"
-                    style="background:#0d1526; border:1px solid #1e293b;">
-                    <div class="w-9 h-9 rounded-xl flex items-center justify-center"
-                        style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.2);">
-                        <i data-lucide="database" style="width:17px;height:17px;color:#818cf8;"></i>
-                    </div>
-                    <div>
-                        <span class="text-white font-bold" id="roster-count">—</span>
-                        <span class="text-slate-500 text-sm ml-1">students enrolled in the biometric system</span>
-                    </div>
-                </div>
-
-                <div class="rounded-xl overflow-hidden" style="border:1px solid #1e293b;">
-                    <div class="overflow-x-auto">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Roll No</th>
-                                    <th>Attendance Rate</th>
-                                    <th>Username</th>
-                                    <th>Password</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="roster-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-12 text-slate-600">Loading roster…</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Settings Tab -->
-            <div id="tab-settings" class="p-6 lg:p-8 hidden">
-                <div class="max-w-2xl">
-                    <div class="mb-6">
-                        <h1 class="text-2xl font-black text-white">System Settings</h1>
-                        <p class="text-slate-500 text-sm mt-1">Configure attendance policy and monitor system health.
-                        </p>
-                    </div>
-
-                    <div class="rounded-xl p-6 mb-5" style="background:#0d1526; border:1px solid #1e293b;">
-                        <div class="flex items-start gap-3 mb-5">
-                            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                                style="background:rgba(217,119,6,0.12); border:1px solid rgba(217,119,6,0.2);">
-                                <i data-lucide="alarm-clock" style="width:17px;height:17px;color:#fbbf24;"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-white font-bold">Late Arrival Cutoff Time</h3>
-                                <p class="text-slate-500 text-sm mt-0.5">Students scanning after this time are marked
-                                    "Late" instead of "Present".</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <input type="time" id="cutoff-time" class="form-input text-sm" style="width:auto;"
-                                value="08:30" />
-                            <button class="btn btn-primary text-sm" onclick="saveCutoff()">
-                                <i data-lucide="save" style="width:14px;height:14px;"></i> Save Cutoff
-                            </button>
-                        </div>
-                        <p class="text-slate-700 mt-3" style="font-size:0.75rem;">Current cutoff: <span
-                                id="current-cutoff-display" class="text-amber-500 font-semibold">Loading…</span></p>
-                    </div>
-
-                    <div class="rounded-xl p-6" style="background:#0d1526; border:1px solid #1e293b;">
-                        <div class="flex items-start gap-3 mb-5">
-                            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                                style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.2);">
-                                <i data-lucide="activity" style="width:17px;height:17px;color:#818cf8;"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-white font-bold">System Health Monitor</h3>
-                                <p class="text-slate-500 text-sm mt-0.5">Live connectivity status of all system
-                                    components.</p>
-                            </div>
-                        </div>
-
-                        <div class="space-y-2.5">
-                            <div class="flex items-center justify-between p-3 rounded-lg"
-                                style="background:#0a0f1e; border:1px solid #1e293b;">
-                                <div class="flex items-center gap-2.5">
-                                    <i data-lucide="cloud" style="width:15px;height:15px;color:#818cf8;"></i>
-                                    <span class="text-sm text-slate-300 font-medium">Google Sheets API</span>
-                                </div>
-                                <span id="status-sheets" class="badge badge-present"><i data-lucide="check-circle"
-                                        style="width:11px;height:11px;"></i> Online</span>
-                            </div>
-                            <div class="flex items-center justify-between p-3 rounded-lg"
-                                style="background:#0a0f1e; border:1px solid #1e293b;">
-                                <div class="flex items-center gap-2.5">
-                                    <i data-lucide="cpu" style="width:15px;height:15px;color:#34d399;"></i>
-                                    <span class="text-sm text-slate-300 font-medium">ESP32 IoT Terminal</span>
-                                </div>
-                                <span id="status-esp" class="badge badge-present"><i data-lucide="check-circle"
-                                        style="width:11px;height:11px;"></i> Polling</span>
-                            </div>
-                            <div class="flex items-center justify-between p-3 rounded-lg"
-                                style="background:#0a0f1e; border:1px solid #1e293b;">
-                                <div class="flex items-center gap-2.5">
-                                    <i data-lucide="fingerprint" style="width:15px;height:15px;color:#fbbf24;"></i>
-                                    <span class="text-sm text-slate-300 font-medium">R307 Fingerprint Sensor</span>
-                                </div>
-                                <span id="status-sensor" class="badge badge-present"><i data-lucide="check-circle"
-                                        style="width:11px;height:11px;"></i> Active</span>
-                            </div>
-                        </div>
-
-                        <button class="btn btn-secondary text-xs mt-4" onclick="checkSystemStatus()">
-                            <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Refresh Status
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- VIEW: STUDENT -->
-    <div id="student-view" class="view min-h-screen flex-col" style="background:#090d16; align-items:stretch;">
-
-        <!-- Top Bar -->
-        <div class="flex items-center justify-between px-5 py-3.5 flex-shrink-0"
-            style="background:#0a0f1e; border-bottom:1px solid #1e293b;">
-            <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style="background: linear-gradient(135deg, #1e1b4b, #312e81); border:1px solid rgba(99,102,241,0.35);">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2.2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <path
-                            d="M12 2C8.686 2 5 4.686 5 9c0 2.686 1.111 4.89 2.778 6.444L12 22l4.222-6.556C17.889 13.89 19 11.686 19 9c0-4.314-3.686-7-7-7z" />
-                        <circle cx="12" cy="9" r="2" />
-                    </svg>
-                </div>
-                <span class="font-black text-white text-xs tracking-widest">ATTENDLINK</span>
-                <span class="text-indigo-600 font-bold text-xs">v2</span>
-            </div>
-            <button class="btn btn-secondary text-xs py-1.5" onclick="doLogout()">
-                <i data-lucide="log-out" style="width:13px;height:13px;"></i> Logout
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Password</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600"><i data-lucide="lock" style="width:16px;height:16px;"></i></span>
+            <input type="password" id="login-password" class="form-input pl-10 pr-10" placeholder="Enter your password" autocomplete="current-password" />
+            <button type="button" id="toggle-pw" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-300 transition-colors p-0 bg-transparent border-none cursor-pointer">
+              <i data-lucide="eye" style="width:16px;height:16px;"></i>
             </button>
+          </div>
         </div>
+        <button id="login-btn" class="btn btn-primary w-full py-3 mt-2 text-sm" onclick="doLogin()">
+          <i data-lucide="fingerprint" style="width:18px;height:18px;"></i>
+          Authenticate
+        </button>
+      </div>
 
-        <!-- Student Content -->
-        <div class="flex-1 overflow-y-auto">
-            <div class="max-w-3xl mx-auto px-4 py-8">
+      <div class="mt-6 pt-5" style="border-top: 1px solid #1e293b;">
+        <p class="text-center text-xs text-slate-700">Secured by biometric identity verification &nbsp;·&nbsp; AttendLink v2</p>
+      </div>
+    </div>
+  </div>
+</div>
 
-                <!-- Welcome Banner -->
-                <div class="rounded-2xl p-6 mb-5"
-                    style="background: linear-gradient(135deg, rgba(30,27,75,0.8) 0%, rgba(17,24,39,0.9) 100%); border:1px solid rgba(49,46,129,0.5); box-shadow: 0 8px 32px rgba(79,70,229,0.1);">
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black flex-shrink-0"
-                            id="student-avatar"
-                            style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color:#e0e7ff;">?</div>
-                        <div>
-                            <div class="text-indigo-400 font-semibold uppercase tracking-wider mb-0.5"
-                                style="font-size:0.65rem;">Student Portal</div>
-                            <h2 class="text-xl font-black text-white" id="student-welcome-name">Welcome back!</h2>
-                            <p class="text-indigo-300 text-sm" id="student-roll-display">—</p>
-                        </div>
-                    </div>
-                </div>
+<!-- VIEW: ADMIN -->
+<div id="admin-view" class="view min-h-screen" style="flex-direction:row; align-items:stretch;">
 
-                <!-- Shortfall Alert -->
-                <div id="shortfall-banner" class="hidden rounded-xl p-4 mb-5 flex items-start gap-3"
-                    style="background:rgba(225,29,72,0.08); border:1px solid rgba(225,29,72,0.22);">
-                    <i data-lucide="alert-triangle"
-                        style="width:19px;height:19px;color:#f87171;flex-shrink:0;margin-top:2px;"></i>
-                    <div>
-                        <div class="font-bold text-rose-400 text-sm">Critical Attendance Shortfall!</div>
-                        <div class="text-rose-300 text-sm mt-0.5" id="shortfall-msg">—</div>
-                    </div>
-                </div>
-
-                <!-- Gauge + Metrics Grid -->
-                <div class="grid md:grid-cols-2 gap-5 mb-5">
-
-                    <!-- Gauge -->
-                    <div class="metric-card flex flex-col items-center justify-center py-8">
-                        <p class="text-slate-600 text-xs font-bold uppercase tracking-wider mb-5">Overall Attendance</p>
-                        <div class="relative" style="width:176px;height:176px;">
-                            <svg width="176" height="176" viewBox="0 0 176 176" class="-rotate-90"
-                                style="transform:rotate(-90deg);">
-                                <circle cx="88" cy="88" r="73" fill="none" stroke="#1e293b" stroke-width="13" />
-                                <circle id="gauge-ring" cx="88" cy="88" r="73" fill="none" stroke="#4f46e5"
-                                    stroke-width="13" stroke-linecap="round" stroke-dasharray="458.67"
-                                    stroke-dashoffset="458.67" class="gauge-ring" />
-                            </svg>
-                            <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                <span class="text-4xl font-black text-white" id="gauge-pct">0%</span>
-                                <span class="text-slate-600 mt-0.5" style="font-size:0.68rem;">Attendance Rate</span>
-                            </div>
-                        </div>
-                        <span class="mt-4 px-4 py-1.5 rounded-full text-xs font-bold" id="gauge-status-badge"
-                            style="background:rgba(5,150,105,0.12);color:#34d399;border:1px solid rgba(5,150,105,0.22);">✓
-                            Eligible</span>
-                    </div>
-
-                    <!-- Stat Cards -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="metric-card flex flex-col items-center justify-center py-6">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                                style="background:#1e293b;">
-                                <i data-lucide="book-open" style="width:17px;height:17px;color:#64748b;"></i>
-                            </div>
-                            <div class="text-2xl font-black text-white" id="s-total">—</div>
-                            <div class="text-slate-600 mt-1" style="font-size:0.7rem;">Total Classes</div>
-                        </div>
-                        <div class="metric-card flex flex-col items-center justify-center py-6">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                                style="background:rgba(5,150,105,0.1);">
-                                <i data-lucide="check-circle-2" style="width:17px;height:17px;color:#34d399;"></i>
-                            </div>
-                            <div class="text-2xl font-black text-emerald-400" id="s-present">—</div>
-                            <div class="text-slate-600 mt-1" style="font-size:0.7rem;">Days Present</div>
-                        </div>
-                        <div class="metric-card flex flex-col items-center justify-center py-6">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                                style="background:rgba(217,119,6,0.1);">
-                                <i data-lucide="clock-4" style="width:17px;height:17px;color:#fbbf24;"></i>
-                            </div>
-                            <div class="text-2xl font-black text-amber-400" id="s-late">—</div>
-                            <div class="text-slate-600 mt-1" style="font-size:0.7rem;">Days Late</div>
-                        </div>
-                        <div class="metric-card flex flex-col items-center justify-center py-6">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                                style="background:rgba(225,29,72,0.08);">
-                                <i data-lucide="x-circle" style="width:17px;height:17px;color:#f87171;"></i>
-                            </div>
-                            <div class="text-2xl font-black text-rose-400" id="s-absent">—</div>
-                            <div class="text-slate-600 mt-1" style="font-size:0.7rem;">Days Absent</div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="p-5 flex-shrink-0" style="border-bottom: 1px solid #1e293b;">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid rgba(99,102,241,0.35);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C8.686 2 5 4.686 5 9c0 2.686 1.111 4.89 2.778 6.444L12 22l4.222-6.556C17.889 13.89 19 11.686 19 9c0-4.314-3.686-7-7-7z"/>
+            <circle cx="12" cy="9" r="2.2"/>
+          </svg>
         </div>
+        <div>
+          <div class="font-black text-white text-sm tracking-widest">ATTENDLINK</div>
+          <div class="text-slate-600" style="font-size:0.65rem; line-height:1.2;">Because every presence matters...</div>
+        </div>
+      </div>
     </div>
 
-    <!-- SCRIPTS -->
-    <script>
-        /* ─── CONFIG ─── */
-        const API_URL = 'https://script.google.com/macros/s/AKfycbxcErJL7PuWQ-U987B1kTMGiV5uSGQTrj-j0v81MnhFjd029Pg0LdP_dzGHsZ3eyFQaWA/exec';
-        const POST_HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
+    <nav class="flex-1 p-3 overflow-y-auto" style="display:flex;flex-direction:column;">
+      <div class="text-slate-700 font-bold uppercase tracking-widest mb-3 px-2" style="font-size:0.65rem;">Navigation</div>
+      <button class="nav-link active" id="nav-daily"     onclick="switchAdminTab('daily')">
+        <i data-lucide="calendar-check-2" style="width:17px;height:17px;"></i> Daily Attendance
+      </button>
+      <button class="nav-link"        id="nav-directory" onclick="switchAdminTab('directory')">
+        <i data-lucide="users"           style="width:17px;height:17px;"></i> Student Directory
+      </button>
+      <button class="nav-link"        id="nav-settings"  onclick="switchAdminTab('settings')">
+        <i data-lucide="settings-2"      style="width:17px;height:17px;"></i> Settings
+      </button>
+    </nav>
 
-        /* ─── STATE ─── */
-        let session = null;
-        let dailyRecords = [];
-        let rosterData = [];
-        let autoRefreshTimer = null;
-        let enrollPollTimer = null;
+    <div class="sidebar-footer p-4 flex-shrink-0" style="border-top: 1px solid #1e293b;">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0" id="admin-avatar" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #e0e7ff;">A</div>
+        <div style="overflow:hidden;">
+          <div class="text-sm font-semibold text-white truncate" id="sidebar-name">Administrator</div>
+          <div class="text-slate-600" style="font-size:0.7rem;">System Admin</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary w-full text-xs py-2" onclick="doLogout()">
+        <i data-lucide="log-out" style="width:14px;height:14px;"></i> Sign Out
+      </button>
+    </div>
+  </aside>
 
-        /* ─── INIT ─── */
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            restoreSession();
-            document.getElementById('login-username').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-password').focus(); });
-            document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-            document.getElementById('toggle-pw').addEventListener('click', () => {
-                const pw = document.getElementById('login-password');
-                const iconEl = document.getElementById('toggle-pw').querySelector('[data-lucide]');
-                if (pw.type === 'password') { pw.type = 'text'; iconEl.setAttribute('data-lucide', 'eye-off'); }
-                else { pw.type = 'password'; iconEl.setAttribute('data-lucide', 'eye'); }
-                lucide.createIcons();
-            });
-        });
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 overflow-y-auto" style="background:#090d16; min-height:100vh;">
 
-        /* ─── SESSION ─── */
-        function restoreSession() {
-            try {
-                const raw = sessionStorage.getItem('attendlink_v2');
-                if (raw) {
-                    session = JSON.parse(raw);
-                    if (session.role === 'ADMIN') routeAdmin();
-                    else if (session.role === 'STUDENT') routeStudent();
-                }
-            } catch (e) { sessionStorage.removeItem('attendlink_v2'); }
-        }
+    <!-- Daily Attendance Tab -->
+    <div id="tab-daily" class="p-6 lg:p-8">
+      <div class="mb-6">
+        <h1 class="text-2xl font-black text-white">Daily Attendance</h1>
+        <p class="text-slate-500 text-sm mt-1">Monitor real-time fingerprint-verified attendance logs.</p>
+      </div>
 
-        function saveSession() { sessionStorage.setItem('attendlink_v2', JSON.stringify(session)); }
+      <!-- Date Nav -->
+      <div class="flex flex-wrap items-center gap-3 mb-6 p-4 rounded-xl" style="background:#0d1526; border:1px solid #1e293b;">
+        <button class="btn btn-secondary text-xs" onclick="stepDate(-1)">
+          <i data-lucide="chevron-left" style="width:14px;height:14px;"></i> Prev Day
+        </button>
+        <input type="date" id="date-picker" class="form-input text-sm" style="width:auto;" onchange="fetchDailyLogs()" />
+        <button class="btn btn-secondary text-xs" onclick="goToday()">
+          <i data-lucide="calendar" style="width:14px;height:14px;"></i> Today
+        </button>
+        <button class="btn btn-secondary text-xs" onclick="stepDate(1)">
+          Next Day <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+        </button>
+        <div class="ml-auto flex items-center gap-2.5">
+          <label class="toggle" title="Auto-Refresh every 10s">
+            <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh()" />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="text-slate-500 text-xs">Auto-Refresh</span>
+          <span id="refresh-indicator" class="inline-block w-2 h-2 rounded-full" style="background:#334155;"></span>
+        </div>
+      </div>
 
-        function doLogout() {
-            if (enrollPollTimer) clearInterval(enrollPollTimer);
-            clearAutoRefresh();
-            session = null;
-            sessionStorage.removeItem('attendlink_v2');
-            closeAllModals();
-            showView('login');
-        }
+      <!-- Metrics -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="metric-card">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#1e293b;"><i data-lucide="users" style="width:15px;height:15px;color:#64748b;"></i></div>
+            <span class="font-bold uppercase tracking-wider text-slate-600" style="font-size:0.65rem;">Total</span>
+          </div>
+          <div class="text-3xl font-black text-white" id="m-total">—</div>
+          <div class="text-slate-600 mt-1" style="font-size:0.72rem;">Enrolled Students</div>
+        </div>
+        <div class="metric-card">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(5,150,105,0.12);"><i data-lucide="check-circle-2" style="width:15px;height:15px;color:#34d399;"></i></div>
+            <span class="font-bold uppercase tracking-wider text-emerald-700" style="font-size:0.65rem;">Present</span>
+          </div>
+          <div class="text-3xl font-black text-emerald-400" id="m-present">—</div>
+          <div class="text-slate-600 mt-1" style="font-size:0.72rem;">On Time</div>
+        </div>
+        <div class="metric-card">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(217,119,6,0.12);"><i data-lucide="clock-4" style="width:15px;height:15px;color:#fbbf24;"></i></div>
+            <span class="font-bold uppercase tracking-wider text-amber-700" style="font-size:0.65rem;">Late</span>
+          </div>
+          <div class="text-3xl font-black text-amber-400" id="m-late">—</div>
+          <div class="text-slate-600 mt-1" style="font-size:0.72rem;">Arrived Late</div>
+        </div>
+        <div class="metric-card">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(225,29,72,0.1);"><i data-lucide="x-circle" style="width:15px;height:15px;color:#f87171;"></i></div>
+            <span class="font-bold uppercase tracking-wider text-rose-700" style="font-size:0.65rem;">Absent</span>
+          </div>
+          <div class="text-3xl font-black text-rose-400" id="m-absent">—</div>
+          <div class="text-slate-600 mt-1" style="font-size:0.72rem;">Not Scanned</div>
+        </div>
+      </div>
 
-        /* ─── ROUTING ─── */
-        function showView(name) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            const el = document.getElementById(name + '-view');
-            if (el) el.classList.add('active');
-            lucide.createIcons();
-        }
+      <!-- Table Controls -->
+      <div class="flex flex-wrap items-center gap-3 mb-3">
+        <div class="relative" style="min-width:200px;max-width:300px;flex:1;">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"><i data-lucide="search" style="width:14px;height:14px;"></i></span>
+          <input type="text" id="daily-search" class="form-input pl-9 text-sm" placeholder="Search by name or roll no…" oninput="filterDailyTable()" />
+        </div>
+        <button class="btn btn-secondary text-xs ml-auto" onclick="exportDailyCSV()">
+          <i data-lucide="download" style="width:14px;height:14px;"></i> Export CSV
+        </button>
+      </div>
 
-        function routeAdmin() {
-            showView('admin');
-            const n = session.name || 'Admin';
-            document.getElementById('sidebar-name').textContent = n;
-            document.getElementById('admin-avatar').textContent = n[0].toUpperCase();
-            switchAdminTab('daily');
-        }
+      <!-- Table -->
+      <div class="rounded-xl overflow-hidden" style="border:1px solid #1e293b;">
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Fingerprint ID</th><th>Name</th><th>Roll No</th><th>Date</th><th>Time</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="daily-tbody">
+              <tr><td colspan="7" class="text-center py-16 text-slate-600">
+                <i data-lucide="loader-2" style="width:20px;height:20px;display:inline;margin-right:8px;animation:spin 1s linear infinite;"></i>Loading…
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-        function routeStudent() {
-            showView('student');
-            populateStudentView();
-        }
+    <!-- Student Directory Tab -->
+    <div id="tab-directory" class="p-6 lg:p-8 hidden">
+      <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl font-black text-white">Student Directory</h1>
+          <p class="text-slate-500 text-sm mt-1">Manage biometric enrollments, credentials, and attendance rates.</p>
+        </div>
+        <button class="btn btn-primary text-sm" onclick="openEnrollModal()">
+          <i data-lucide="user-plus" style="width:16px;height:16px;"></i> Enroll New Student
+        </button>
+      </div>
 
-        /* ─── LOGIN ─── */
-        async function doLogin() {
-            const username = document.getElementById('login-username').value.trim();
-            const password = document.getElementById('login-password').value.trim();
-            if (!username || !password) { showLoginError('Please fill in both fields.'); return; }
-            const btn = document.getElementById('login-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite;"></i> Authenticating…';
-            lucide.createIcons();
-            hideLoginError();
-            try {
-                const res = await apiPost({ type: 'login', username, password });
-                if (res.status === 'SUCCESS') {
-                    session = { role: res.role, name: res.name, roll_no: res.roll_no, present: res.present, late: res.late, total: res.total, percentage: res.percentage, id: res.id };
-                    saveSession();
-                    if (res.role === 'ADMIN') routeAdmin();
-                    else routeStudent();
-                } else {
-                    showLoginError('Invalid credentials. Check your username and password.');
-                }
-            } catch (e) {
-                showLoginError('Connection error. Please check your network and try again.');
-            }
-            btn.disabled = false;
-            btn.innerHTML = '<i data-lucide="fingerprint" style="width:18px;height:18px;"></i> Authenticate';
-            lucide.createIcons();
-        }
+      <div class="flex items-center gap-3 p-4 rounded-xl mb-5" style="background:#0d1526; border:1px solid #1e293b;">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.2);">
+          <i data-lucide="database" style="width:17px;height:17px;color:#818cf8;"></i>
+        </div>
+        <div>
+          <span class="text-white font-bold" id="roster-count">—</span>
+          <span class="text-slate-500 text-sm ml-1">students enrolled in the biometric system</span>
+        </div>
+      </div>
 
-        function showLoginError(msg) {
-            document.getElementById('login-error-msg').textContent = msg;
-            document.getElementById('login-error').classList.remove('hidden');
-        }
-        function hideLoginError() { document.getElementById('login-error').classList.add('hidden'); }
+      <div class="rounded-xl overflow-hidden" style="border:1px solid #1e293b;">
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Name</th><th>Roll No</th><th>Attendance Rate</th><th>Username</th><th>Password</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="roster-tbody">
+              <tr><td colspan="7" class="text-center py-12 text-slate-600">Loading roster…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-        /* ─── ADMIN TABS ─── */
-        function switchAdminTab(tab) {
-            ['daily', 'directory', 'settings'].forEach(t => {
-                document.getElementById('tab-' + t).classList.add('hidden');
-                document.getElementById('nav-' + t).classList.remove('active');
-            });
-            document.getElementById('tab-' + tab).classList.remove('hidden');
-            document.getElementById('nav-' + tab).classList.add('active');
-            lucide.createIcons();
-            if (tab === 'daily') initDailyTab();
-            else if (tab === 'directory') fetchRoster();
-            else if (tab === 'settings') { fetchSettings(); checkSystemStatus(); }
-        }
+    <!-- Settings Tab -->
+    <div id="tab-settings" class="p-6 lg:p-8 hidden">
+      <div class="max-w-2xl">
+        <div class="mb-6">
+          <h1 class="text-2xl font-black text-white">System Settings</h1>
+          <p class="text-slate-500 text-sm mt-1">Configure attendance policy and monitor system health.</p>
+        </div>
 
-        /* ─── DAILY ATTENDANCE ─── */
-        function getLocalDate() {
-            const d = new Date();
-            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        }
+        <div class="rounded-xl p-6 mb-5" style="background:#0d1526; border:1px solid #1e293b;">
+          <div class="flex items-start gap-3 mb-5">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style="background:rgba(217,119,6,0.12); border:1px solid rgba(217,119,6,0.2);">
+              <i data-lucide="alarm-clock" style="width:17px;height:17px;color:#fbbf24;"></i>
+            </div>
+            <div>
+              <h3 class="text-white font-bold">Late Arrival Cutoff Time</h3>
+              <p class="text-slate-500 text-sm mt-0.5">Students scanning after this time are marked "Late" instead of "Present".</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <input type="time" id="cutoff-time" class="form-input text-sm" style="width:auto;" value="08:30" />
+            <button class="btn btn-primary text-sm" onclick="saveCutoff()">
+              <i data-lucide="save" style="width:14px;height:14px;"></i> Save Cutoff
+            </button>
+          </div>
+          <p class="text-slate-700 mt-3" style="font-size:0.75rem;">Current cutoff: <span id="current-cutoff-display" class="text-amber-500 font-semibold">Loading…</span></p>
+        </div>
 
-        function initDailyTab() {
-            const dp = document.getElementById('date-picker');
-            if (!dp.value) dp.value = getLocalDate();
-            fetchDailyLogs();
-        }
+        <div class="rounded-xl p-6" style="background:#0d1526; border:1px solid #1e293b;">
+          <div class="flex items-start gap-3 mb-5">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.2);">
+              <i data-lucide="activity" style="width:17px;height:17px;color:#818cf8;"></i>
+            </div>
+            <div>
+              <h3 class="text-white font-bold">System Health Monitor</h3>
+              <p class="text-slate-500 text-sm mt-0.5">Live connectivity status of all system components.</p>
+            </div>
+          </div>
 
-        function stepDate(delta) {
-            const dp = document.getElementById('date-picker');
-            const d = new Date(dp.value + 'T12:00:00');
-            d.setDate(d.getDate() + delta);
-            dp.value = d.toISOString().slice(0, 10);
-            fetchDailyLogs();
-        }
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between p-3 rounded-lg" style="background:#0a0f1e; border:1px solid #1e293b;">
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="cloud" style="width:15px;height:15px;color:#818cf8;"></i>
+                <span class="text-sm text-slate-300 font-medium">Google Sheets API</span>
+              </div>
+              <span id="status-sheets" class="badge badge-present"><i data-lucide="check-circle" style="width:11px;height:11px;"></i> Online</span>
+            </div>
+            <div class="flex items-center justify-between p-3 rounded-lg" style="background:#0a0f1e; border:1px solid #1e293b;">
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="cpu" style="width:15px;height:15px;color:#34d399;"></i>
+                <span class="text-sm text-slate-300 font-medium">ESP32 IoT Terminal</span>
+              </div>
+              <span id="status-esp" class="badge badge-present"><i data-lucide="check-circle" style="width:11px;height:11px;"></i> Polling</span>
+            </div>
+            <div class="flex items-center justify-between p-3 rounded-lg" style="background:#0a0f1e; border:1px solid #1e293b;">
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="fingerprint" style="width:15px;height:15px;color:#fbbf24;"></i>
+                <span class="text-sm text-slate-300 font-medium">R307 Fingerprint Sensor</span>
+              </div>
+              <span id="status-sensor" class="badge badge-present"><i data-lucide="check-circle" style="width:11px;height:11px;"></i> Active</span>
+            </div>
+          </div>
 
-        function goToday() {
-            document.getElementById('date-picker').value = getLocalDate();
-            fetchDailyLogs();
-        }
+          <button class="btn btn-secondary text-xs mt-4" onclick="checkSystemStatus()">
+            <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Refresh Status
+          </button>
+        </div>
+      </div>
+    </div>
 
-        async function fetchDailyLogs() {
-            const date = document.getElementById('date-picker').value;
-            showDailySkeleton();
-            try {
-                const res = await apiGet({ action: 'get_daily_logs', date });
-                dailyRecords = Array.isArray(res.records) ? res.records : [];
-                document.getElementById('m-total').textContent = res.total_students ?? '—';
-                document.getElementById('m-present').textContent = res.present_count ?? '—';
-                document.getElementById('m-late').textContent = res.late_count ?? '—';
-                document.getElementById('m-absent').textContent = res.absent_count ?? '—';
-                renderDailyTable(dailyRecords);
-            } catch (e) {
-                showToast('Failed to fetch attendance data.', 'error');
-                document.getElementById('daily-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-16 text-slate-600">
+  </main>
+</div>
+
+<!-- VIEW: STUDENT -->
+<div id="student-view" class="view min-h-screen flex-col" style="background:#090d16; align-items:stretch;">
+
+  <!-- Top Bar -->
+  <div class="flex items-center justify-between px-5 py-3.5 flex-shrink-0" style="background:#0a0f1e; border-bottom:1px solid #1e293b;">
+    <div class="flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #1e1b4b, #312e81); border:1px solid rgba(99,102,241,0.35);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2C8.686 2 5 4.686 5 9c0 2.686 1.111 4.89 2.778 6.444L12 22l4.222-6.556C17.889 13.89 19 11.686 19 9c0-4.314-3.686-7-7-7z"/>
+          <circle cx="12" cy="9" r="2"/>
+        </svg>
+      </div>
+      <span class="font-black text-white text-xs tracking-widest">ATTENDLINK</span>
+      <span class="text-indigo-600 font-bold text-xs">v2</span>
+    </div>
+    <button class="btn btn-secondary text-xs py-1.5" onclick="doLogout()">
+      <i data-lucide="log-out" style="width:13px;height:13px;"></i> Logout
+    </button>
+  </div>
+
+  <!-- Student Content -->
+  <div class="flex-1 overflow-y-auto">
+    <div class="max-w-3xl mx-auto px-4 py-8">
+
+      <!-- Welcome Banner -->
+      <div class="rounded-2xl p-6 mb-5" style="background: linear-gradient(135deg, rgba(30,27,75,0.8) 0%, rgba(17,24,39,0.9) 100%); border:1px solid rgba(49,46,129,0.5); box-shadow: 0 8px 32px rgba(79,70,229,0.1);">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black flex-shrink-0" id="student-avatar" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color:#e0e7ff;">?</div>
+          <div>
+            <div class="text-indigo-400 font-semibold uppercase tracking-wider mb-0.5" style="font-size:0.65rem;">Student Portal</div>
+            <h2 class="text-xl font-black text-white" id="student-welcome-name">Welcome back!</h2>
+            <p class="text-indigo-300 text-sm" id="student-roll-display">—</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shortfall Alert -->
+      <div id="shortfall-banner" class="hidden rounded-xl p-4 mb-5 flex items-start gap-3" style="background:rgba(225,29,72,0.08); border:1px solid rgba(225,29,72,0.22);">
+        <i data-lucide="alert-triangle" style="width:19px;height:19px;color:#f87171;flex-shrink:0;margin-top:2px;"></i>
+        <div>
+          <div class="font-bold text-rose-400 text-sm">Critical Attendance Shortfall!</div>
+          <div class="text-rose-300 text-sm mt-0.5" id="shortfall-msg">—</div>
+        </div>
+      </div>
+
+      <!-- Gauge + Metrics Grid -->
+      <div class="grid md:grid-cols-2 gap-5 mb-5">
+
+        <!-- Gauge -->
+        <div class="metric-card flex flex-col items-center justify-center py-8">
+          <p class="text-slate-600 text-xs font-bold uppercase tracking-wider mb-5">Overall Attendance</p>
+          <div class="relative" style="width:176px;height:176px;">
+            <svg width="176" height="176" viewBox="0 0 176 176" class="-rotate-90" style="transform:rotate(-90deg);">
+              <circle cx="88" cy="88" r="73" fill="none" stroke="#1e293b" stroke-width="13"/>
+              <circle id="gauge-ring" cx="88" cy="88" r="73" fill="none" stroke="#4f46e5" stroke-width="13"
+                stroke-linecap="round" stroke-dasharray="458.67" stroke-dashoffset="458.67" class="gauge-ring"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="text-4xl font-black text-white" id="gauge-pct">0%</span>
+              <span class="text-slate-600 mt-0.5" style="font-size:0.68rem;">Attendance Rate</span>
+            </div>
+          </div>
+          <span class="mt-4 px-4 py-1.5 rounded-full text-xs font-bold" id="gauge-status-badge" style="background:rgba(5,150,105,0.12);color:#34d399;border:1px solid rgba(5,150,105,0.22);">✓ Eligible</span>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="metric-card flex flex-col items-center justify-center py-6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style="background:#1e293b;">
+              <i data-lucide="book-open" style="width:17px;height:17px;color:#64748b;"></i>
+            </div>
+            <div class="text-2xl font-black text-white" id="s-total">—</div>
+            <div class="text-slate-600 mt-1" style="font-size:0.7rem;">Total Classes</div>
+          </div>
+          <div class="metric-card flex flex-col items-center justify-center py-6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style="background:rgba(5,150,105,0.1);">
+              <i data-lucide="check-circle-2" style="width:17px;height:17px;color:#34d399;"></i>
+            </div>
+            <div class="text-2xl font-black text-emerald-400" id="s-present">—</div>
+            <div class="text-slate-600 mt-1" style="font-size:0.7rem;">Days Present</div>
+          </div>
+          <div class="metric-card flex flex-col items-center justify-center py-6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style="background:rgba(217,119,6,0.1);">
+              <i data-lucide="clock-4" style="width:17px;height:17px;color:#fbbf24;"></i>
+            </div>
+            <div class="text-2xl font-black text-amber-400" id="s-late">—</div>
+            <div class="text-slate-600 mt-1" style="font-size:0.7rem;">Days Late</div>
+          </div>
+          <div class="metric-card flex flex-col items-center justify-center py-6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style="background:rgba(225,29,72,0.08);">
+              <i data-lucide="x-circle" style="width:17px;height:17px;color:#f87171;"></i>
+            </div>
+            <div class="text-2xl font-black text-rose-400" id="s-absent">—</div>
+            <div class="text-slate-600 mt-1" style="font-size:0.7rem;">Days Absent</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
+<script>
+/* ─── CONFIG ─── */
+const API_URL = 'https://script.google.com/macros/s/AKfycbxcErJL7PuWQ-U987B1kTMGiV5uSGQTrj-j0v81MnhFjd029Pg0LdP_dzGHsZ3eyFQaWA/exec';
+
+/* ─── STATE ─── */
+let session = null;
+let dailyRecords = [];
+let rosterData = [];
+let autoRefreshTimer = null;
+let enrollPollTimer = null;
+
+/* ─── INIT ─── */
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  restoreSession();
+  document.getElementById('login-username').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-password').focus(); });
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('toggle-pw').addEventListener('click', () => {
+    const pw = document.getElementById('login-password');
+    const iconEl = document.getElementById('toggle-pw').querySelector('[data-lucide]');
+    if (pw.type === 'password') { pw.type = 'text'; iconEl.setAttribute('data-lucide', 'eye-off'); }
+    else { pw.type = 'password'; iconEl.setAttribute('data-lucide', 'eye'); }
+    lucide.createIcons();
+  });
+});
+
+/* ─── SESSION ─── */
+function restoreSession() {
+  try {
+    const raw = sessionStorage.getItem('attendlink_v2');
+    if (raw) {
+      session = JSON.parse(raw);
+      if (session.role === 'ADMIN') routeAdmin();
+      else if (session.role === 'STUDENT') routeStudent();
+    }
+  } catch (e) { sessionStorage.removeItem('attendlink_v2'); }
+}
+
+function saveSession() { sessionStorage.setItem('attendlink_v2', JSON.stringify(session)); }
+
+function doLogout() {
+  if (enrollPollTimer) clearInterval(enrollPollTimer);
+  clearAutoRefresh();
+  session = null;
+  sessionStorage.removeItem('attendlink_v2');
+  closeAllModals();
+  showView('login');
+}
+
+/* ─── ROUTING ─── */
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById(name + '-view');
+  if (el) el.classList.add('active');
+  lucide.createIcons();
+}
+
+function routeAdmin() {
+  showView('admin');
+  const n = session.name || 'Admin';
+  document.getElementById('sidebar-name').textContent = n;
+  document.getElementById('admin-avatar').textContent = n[0].toUpperCase();
+  switchAdminTab('daily');
+}
+
+function routeStudent() {
+  showView('student');
+  populateStudentView();
+}
+
+/* ─── LOGIN ─── */
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  if (!username || !password) { showLoginError('Please fill in both fields.'); return; }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite;"></i> Authenticating…';
+  lucide.createIcons();
+  hideLoginError();
+  try {
+    const res = await apiGet({ action: 'login', username, password });
+    if (res.status === 'SUCCESS') {
+      session = { role: res.role, name: res.name, roll_no: res.roll_no, present: res.present, late: res.late, total: res.total, percentage: res.percentage, id: res.id };
+      saveSession();
+      if (res.role === 'ADMIN') routeAdmin();
+      else routeStudent();
+    } else {
+      showLoginError('Invalid credentials. Check your username and password.');
+    }
+  } catch (e) {
+    showLoginError('Connection error. Please check your network and try again.');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="fingerprint" style="width:18px;height:18px;"></i> Authenticate';
+  lucide.createIcons();
+}
+
+function showLoginError(msg) {
+  document.getElementById('login-error-msg').textContent = msg;
+  document.getElementById('login-error').classList.remove('hidden');
+}
+function hideLoginError() { document.getElementById('login-error').classList.add('hidden'); }
+
+/* ─── ADMIN TABS ─── */
+function switchAdminTab(tab) {
+  ['daily', 'directory', 'settings'].forEach(t => {
+    document.getElementById('tab-' + t).classList.add('hidden');
+    document.getElementById('nav-' + t).classList.remove('active');
+  });
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+  document.getElementById('nav-' + tab).classList.add('active');
+  lucide.createIcons();
+  if (tab === 'daily') initDailyTab();
+  else if (tab === 'directory') fetchRoster();
+  else if (tab === 'settings') { fetchSettings(); checkSystemStatus(); }
+}
+
+/* ─── DAILY ATTENDANCE ─── */
+function getLocalDate() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function initDailyTab() {
+  const dp = document.getElementById('date-picker');
+  if (!dp.value) dp.value = getLocalDate();
+  fetchDailyLogs();
+}
+
+function stepDate(delta) {
+  const dp = document.getElementById('date-picker');
+  const d = new Date(dp.value + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  dp.value = d.toISOString().slice(0, 10);
+  fetchDailyLogs();
+}
+
+function goToday() {
+  document.getElementById('date-picker').value = getLocalDate();
+  fetchDailyLogs();
+}
+
+async function fetchDailyLogs() {
+  const date = document.getElementById('date-picker').value;
+  showDailySkeleton();
+  try {
+    const res = await apiGet({ action: 'get_daily_logs', date });
+    dailyRecords = Array.isArray(res.records) ? res.records : [];
+    document.getElementById('m-total').textContent   = res.total_students   ?? '—';
+    document.getElementById('m-present').textContent = res.present_count    ?? '—';
+    document.getElementById('m-late').textContent    = res.late_count       ?? '—';
+    document.getElementById('m-absent').textContent  = res.absent_count     ?? '—';
+    renderDailyTable(dailyRecords);
+  } catch (e) {
+    showToast('Failed to fetch attendance data.', 'error');
+    document.getElementById('daily-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-16 text-slate-600">
       <i data-lucide="wifi-off" style="width:20px;height:20px;display:inline;margin-right:8px;"></i>
       Could not load data. Check connection.</td></tr>`;
-                lucide.createIcons();
-            }
-        }
+    lucide.createIcons();
+  }
+}
 
-        function showDailySkeleton() {
-            const widths = [40, 60, 100, 80, 80, 60, 70];
-            let rows = '';
-            for (let i = 0; i < 7; i++) {
-                rows += '<tr>' + widths.map(w => `<td><div class="skeleton h-3.5 rounded" style="width:${w + Math.floor(Math.random() * 30)}px;"></div></td>`).join('') + '</tr>';
-            }
-            document.getElementById('daily-tbody').innerHTML = rows;
-        }
+function showDailySkeleton() {
+  const widths = [40, 60, 100, 80, 80, 60, 70];
+  let rows = '';
+  for (let i = 0; i < 7; i++) {
+    rows += '<tr>' + widths.map(w => `<td><div class="skeleton h-3.5 rounded" style="width:${w + Math.floor(Math.random()*30)}px;"></div></td>`).join('') + '</tr>';
+  }
+  document.getElementById('daily-tbody').innerHTML = rows;
+}
 
-        function renderDailyTable(records) {
-            if (!records.length) {
-                document.getElementById('daily-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-16 text-slate-600">
+function renderDailyTable(records) {
+  if (!records.length) {
+    document.getElementById('daily-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-16 text-slate-600">
       <div style="margin-bottom:10px;"><i data-lucide="calendar-off" style="width:38px;height:38px;color:#1e293b;display:inline;"></i></div>
       No attendance records for this date.</td></tr>`;
-                lucide.createIcons();
-                return;
-            }
-            let html = '';
-            records.forEach(r => {
-                const statusBadge =
-                    r.status === 'Present' ? `<span class="badge badge-present"><i data-lucide="check-circle-2" style="width:10px;height:10px;"></i> Present</span>` :
-                        r.status === 'Late' ? `<span class="badge badge-late"><i data-lucide="clock-4" style="width:10px;height:10px;"></i> Late</span>` :
-                            `<span class="badge badge-absent"><i data-lucide="x-circle" style="width:10px;height:10px;"></i> Absent</span>`;
-                const timeDisplay = r.status === 'Absent'
-                    ? `<span class="text-slate-700 font-mono">--:--</span>`
-                    : `<span class="font-mono text-slate-300">${esc(fmt12h(r.time || ''))}</span>`;
-                html += `<tr>
+    lucide.createIcons();
+    return;
+  }
+  let html = '';
+  records.forEach(r => {
+    const statusBadge =
+      r.status === 'Present' ? `<span class="badge badge-present"><i data-lucide="check-circle-2" style="width:10px;height:10px;"></i> Present</span>` :
+      r.status === 'Late'    ? `<span class="badge badge-late"><i data-lucide="clock-4" style="width:10px;height:10px;"></i> Late</span>` :
+                               `<span class="badge badge-absent"><i data-lucide="x-circle" style="width:10px;height:10px;"></i> Absent</span>`;
+    const timeDisplay = r.status === 'Absent'
+      ? `<span class="text-slate-700 font-mono">--:--</span>`
+      : `<span class="font-mono text-slate-300">${esc(fmt12h(r.time || ''))}</span>`;
+    html += `<tr>
       <td class="text-slate-600 font-mono text-xs">${esc(String(r.serial ?? '—'))}</td>
       <td><span class="font-mono text-xs px-2 py-0.5 rounded" style="background:rgba(99,102,241,0.1);color:#818cf8;">#${esc(String(r.id ?? '—'))}</span></td>
       <td class="font-medium text-white">${esc(r.name || '—')}</td>
@@ -1338,92 +759,92 @@
       <td>${timeDisplay}</td>
       <td>${statusBadge}</td>
     </tr>`;
-            });
-            document.getElementById('daily-tbody').innerHTML = html;
-            lucide.createIcons();
-        }
+  });
+  document.getElementById('daily-tbody').innerHTML = html;
+  lucide.createIcons();
+}
 
-        function filterDailyTable() {
-            const q = document.getElementById('daily-search').value.toLowerCase();
-            const filtered = dailyRecords.filter(r =>
-                (r.name || '').toLowerCase().includes(q) || (r.roll_no || '').toLowerCase().includes(q)
-            );
-            renderDailyTable(filtered);
-        }
+function filterDailyTable() {
+  const q = document.getElementById('daily-search').value.toLowerCase();
+  const filtered = dailyRecords.filter(r =>
+    (r.name || '').toLowerCase().includes(q) || (r.roll_no || '').toLowerCase().includes(q)
+  );
+  renderDailyTable(filtered);
+}
 
-        function exportDailyCSV() {
-            const date = document.getElementById('date-picker').value;
-            if (!dailyRecords.length) { showToast('No records to export.', 'warning'); return; }
-            const q = document.getElementById('daily-search').value.toLowerCase();
-            const rows = dailyRecords
-                .filter(r => (r.name || '').toLowerCase().includes(q) || (r.roll_no || '').toLowerCase().includes(q))
-                .map(r => [r.serial, r.id, r.name, r.roll_no, r.date, r.status === 'Absent' ? '--:--' : fmt12h(r.time || ''), r.status]);
-            const header = ['#', 'Fingerprint ID', 'Name', 'Roll No', 'Date', 'Time', 'Status'];
-            const csv = [header, ...rows].map(row => row.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `attendance_${date}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            showToast(`Exported ${rows.length} records to CSV.`, 'success');
-        }
+function exportDailyCSV() {
+  const date = document.getElementById('date-picker').value;
+  if (!dailyRecords.length) { showToast('No records to export.', 'warning'); return; }
+  const q = document.getElementById('daily-search').value.toLowerCase();
+  const rows = dailyRecords
+    .filter(r => (r.name || '').toLowerCase().includes(q) || (r.roll_no || '').toLowerCase().includes(q))
+    .map(r => [r.serial, r.id, r.name, r.roll_no, r.date, r.status === 'Absent' ? '--:--' : fmt12h(r.time || ''), r.status]);
+  const header = ['#', 'Fingerprint ID', 'Name', 'Roll No', 'Date', 'Time', 'Status'];
+  const csv = [header, ...rows].map(row => row.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `attendance_${date}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast(`Exported ${rows.length} records to CSV.`, 'success');
+}
 
-        function toggleAutoRefresh() {
-            const on = document.getElementById('auto-refresh-toggle').checked;
-            const ind = document.getElementById('refresh-indicator');
-            if (on) {
-                ind.style.background = '#34d399';
-                autoRefreshTimer = setInterval(() => {
-                    if (document.getElementById('date-picker').value === getLocalDate()) fetchDailyLogs();
-                }, 10000);
-                showToast('Auto-refresh enabled (10s)', 'info');
-            } else {
-                clearAutoRefresh();
-                showToast('Auto-refresh disabled', 'info');
-            }
-        }
+function toggleAutoRefresh() {
+  const on = document.getElementById('auto-refresh-toggle').checked;
+  const ind = document.getElementById('refresh-indicator');
+  if (on) {
+    ind.style.background = '#34d399';
+    autoRefreshTimer = setInterval(() => {
+      if (document.getElementById('date-picker').value === getLocalDate()) fetchDailyLogs();
+    }, 10000);
+    showToast('Auto-refresh enabled (10s)', 'info');
+  } else {
+    clearAutoRefresh();
+    showToast('Auto-refresh disabled', 'info');
+  }
+}
 
-        function clearAutoRefresh() {
-            if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
-            const t = document.getElementById('auto-refresh-toggle');
-            if (t) t.checked = false;
-            const ind = document.getElementById('refresh-indicator');
-            if (ind) ind.style.background = '#334155';
-        }
+function clearAutoRefresh() {
+  if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+  const t = document.getElementById('auto-refresh-toggle');
+  if (t) t.checked = false;
+  const ind = document.getElementById('refresh-indicator');
+  if (ind) ind.style.background = '#334155';
+}
 
-        /* ─── ROSTER ─── */
-        async function fetchRoster() {
-            document.getElementById('roster-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-600">Loading roster…</td></tr>`;
-            try {
-                const res = await apiGet({ action: 'get_roster' });
-                rosterData = Array.isArray(res) ? res : [];
-                document.getElementById('roster-count').textContent = rosterData.length;
-                renderRoster(rosterData);
-            } catch (e) {
-                showToast('Failed to load roster.', 'error');
-                document.getElementById('roster-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-600">Failed to load. Try again.</td></tr>`;
-            }
-        }
+/* ─── ROSTER ─── */
+async function fetchRoster() {
+  document.getElementById('roster-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-600">Loading roster…</td></tr>`;
+  try {
+    const res = await apiGet({ action: 'get_roster' });
+    rosterData = Array.isArray(res) ? res : [];
+    document.getElementById('roster-count').textContent = rosterData.length;
+    renderRoster(rosterData);
+  } catch (e) {
+    showToast('Failed to load roster.', 'error');
+    document.getElementById('roster-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-600">Failed to load. Try again.</td></tr>`;
+  }
+}
 
-        function renderRoster(students) {
-            if (!students.length) {
-                document.getElementById('roster-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-600">No students enrolled yet.</td></tr>`;
-                return;
-            }
-            let html = '';
-            students.forEach(s => {
-                const pct = parseFloat(s.percentage) || 0;
-                const barClr = pct >= 75 ? '#059669' : '#e11d48';
-                const pctClr = pct >= 75 ? 'color:#34d399' : 'color:#f87171';
-                html += `<tr>
+function renderRoster(students) {
+  if (!students.length) {
+    document.getElementById('roster-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-600">No students enrolled yet.</td></tr>`;
+    return;
+  }
+  let html = '';
+  students.forEach(s => {
+    const pct = parseFloat(s.percentage) || 0;
+    const barClr = pct >= 75 ? '#059669' : '#e11d48';
+    const pctClr = pct >= 75 ? 'color:#34d399' : 'color:#f87171';
+    html += `<tr>
       <td><span class="font-mono text-xs px-1.5 py-0.5 rounded" style="background:rgba(99,102,241,0.1);color:#818cf8;">#${esc(String(s.id))}</span></td>
       <td class="font-semibold text-white text-sm">${esc(s.name)}</td>
       <td class="font-mono text-slate-400 text-xs">${esc(s.roll_no)}</td>
       <td style="min-width:150px;">
         <div class="flex items-center gap-2">
-          <div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${Math.min(pct, 100)}%;background:${barClr};"></div></div>
+          <div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${Math.min(pct,100)}%;background:${barClr};"></div></div>
           <span class="text-xs font-bold w-12 text-right" style="${pctClr}">${pct.toFixed(1)}%</span>
         </div>
       </td>
@@ -1442,24 +863,24 @@
         </button>
       </td>
     </tr>`;
-            });
-            document.getElementById('roster-tbody').innerHTML = html;
-            lucide.createIcons();
-        }
+  });
+  document.getElementById('roster-tbody').innerHTML = html;
+  lucide.createIcons();
+}
 
-        function togglePwVisible(id) {
-            const el = document.getElementById('pw-val-' + id);
-            if (!el) return;
-            if (el.dataset.masked === '1') { el.textContent = el.dataset.pw; el.dataset.masked = '0'; el.style.color = '#fbbf24'; }
-            else { el.textContent = '••••••••'; el.dataset.masked = '1'; el.style.color = ''; }
-        }
+function togglePwVisible(id) {
+  const el = document.getElementById('pw-val-' + id);
+  if (!el) return;
+  if (el.dataset.masked === '1') { el.textContent = el.dataset.pw; el.dataset.masked = '0'; el.style.color = '#fbbf24'; }
+  else { el.textContent = '••••••••'; el.dataset.masked = '1'; el.style.color = ''; }
+}
 
-        /* ─── DELETE MODAL ─── */
-        function confirmDelete(id, name) {
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.id = 'delete-modal';
-            modal.innerHTML = `
+/* ─── DELETE MODAL ─── */
+function confirmDelete(id, name) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'delete-modal';
+  modal.innerHTML = `
     <div class="modal-box">
       <div class="flex items-center gap-3 mb-5">
         <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(225,29,72,0.12); border:1px solid rgba(225,29,72,0.25);">
@@ -1489,37 +910,37 @@
         </button>
       </div>
     </div>`;
-            modal.addEventListener('click', e => { if (e.target === modal) closeModal('delete-modal'); });
-            document.getElementById('modal-container').appendChild(modal);
-            lucide.createIcons();
-        }
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal('delete-modal'); });
+  document.getElementById('modal-container').appendChild(modal);
+  lucide.createIcons();
+}
 
-        async function executeDelete(id, name) {
-            const btn = document.getElementById('confirm-del-btn');
-            if (!btn) return;
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader-2" style="width:14px;height:14px;animation:spin 1s linear infinite;"></i> Deleting…';
-            lucide.createIcons();
-            try {
-                await apiPost({ type: 'queue_delete', id });
-                closeModal('delete-modal');
-                showToast(`Delete command queued for ${name}. ESP32 will erase fingerprint.`, 'success');
-                fetchRoster();
-            } catch (e) {
-                showToast('Delete failed. Please try again.', 'error');
-                btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="trash-2" style="width:13px;height:13px;"></i> Yes, Delete Permanently';
-                lucide.createIcons();
-            }
-        }
+async function executeDelete(id, name) {
+  const btn = document.getElementById('confirm-del-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" style="width:14px;height:14px;animation:spin 1s linear infinite;"></i> Deleting…';
+  lucide.createIcons();
+  try {
+    const res = await apiGet({ action: 'queue_delete', id: id });
+    closeModal('delete-modal');
+    showToast(`Deleted ${name}. Wipe queued for hardware.`, 'success');
+    fetchRoster();
+  } catch (e) {
+    showToast('Delete failed. Please try again.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="trash-2" style="width:13px;height:13px;"></i> Yes, Delete Permanently';
+    lucide.createIcons();
+  }
+}
 
-        /* ─── ENROLL MODAL ─── */
-        function openEnrollModal() {
-            closeAllModals();
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.id = 'enroll-modal';
-            modal.innerHTML = `
+/* ─── ENROLL MODAL ─── */
+function openEnrollModal() {
+  closeAllModals();
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'enroll-modal';
+  modal.innerHTML = `
     <div class="modal-box">
       <div class="flex items-center gap-3 mb-5">
         <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.25);">
@@ -1570,12 +991,12 @@
         <p class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Assigned ID</p>
         <p class="text-indigo-400 font-black text-4xl font-mono mb-5" id="e-assigned-id">#—</p>
         <div class="rounded-xl p-4 text-left mb-4" style="background:#0a0f1e; border:1px solid #334155;">
-          <p class="text-white font-bold text-sm" id="e-step-title">Step 1: Initial Scan</p>
-          <p class="text-slate-400 text-sm mt-1" id="e-step-desc">Place your finger firmly on the sensor prism. Hold still until the LED turns green.</p>
+          <p class="text-white font-bold text-sm" id="e-step-title">Biometric Registration in Progress</p>
+          <p class="text-slate-400 text-sm mt-1" id="e-step-desc">Watch terminal screen: Place finger on prism, lift when signaled, then place the same finger again.</p>
         </div>
         <div class="flex items-center justify-center gap-2 text-xs text-slate-600">
           <i data-lucide="loader-2" style="width:13px;height:13px;animation:spin 1s linear infinite;"></i>
-          <span id="e-poll-status">Polling sensor…</span>
+          <span id="e-poll-status">Waiting for terminal response…</span>
         </div>
       </div>
 
@@ -1608,282 +1029,239 @@
         </button>
       </div>
     </div>`;
-            document.getElementById('modal-container').appendChild(modal);
-            lucide.createIcons();
-        }
+  document.getElementById('modal-container').appendChild(modal);
+  lucide.createIcons();
+}
 
-        async function startEnroll() {
-            const name = document.getElementById('e-name').value.trim();
-            const roll_no = document.getElementById('e-roll').value.trim();
-            if (!name || !roll_no) { showToast('Please fill in all fields.', 'warning'); return; }
-            try {
-                const res = await apiPost({ type: 'queue_enroll', name, roll_no });
-                if (res.status === 'QUEUED') {
-                    window._ec = { name, username: res.username, temp_password: res.temp_password };
-                    document.getElementById('es-form').classList.add('hidden');
-                    document.getElementById('es-scan').classList.remove('hidden');
-                    document.getElementById('e-assigned-id').textContent = '#' + res.target_id;
-                    setStepDot(1, 'active');
-                    beginPoll(res.target_id, 1);
-                } else {
-                    showToast('Enroll command failed. Try again.', 'error');
-                }
-            } catch (e) {
-                showToast('Network error while enrolling.', 'error');
-            }
-        }
+async function startEnroll() {
+  const name    = document.getElementById('e-name').value.trim();
+  const roll_no = document.getElementById('e-roll').value.trim();
+  if (!name || !roll_no) { showToast('Please fill in all fields.', 'warning'); return; }
+  try {
+    const res = await apiGet({ action: 'queue_enroll', name, roll_no });
+    if (res.status === 'QUEUED') {
+      window._ec = { name, username: res.username, temp_password: res.temp_password };
+      document.getElementById('es-form').classList.add('hidden');
+      document.getElementById('es-scan').classList.remove('hidden');
+      document.getElementById('e-assigned-id').textContent = '#' + res.target_id;
+      setStepDot(1, 'active');
+      beginPoll(res.target_id);
+    } else {
+      showToast('Enroll command failed. Try again.', 'error');
+    }
+  } catch (e) {
+    showToast('Network error while enrolling.', 'error');
+  }
+}
 
-        let _pollStep = 1;
-        let _prevStatus = 'IDLE';
+function beginPoll(targetId) {
+  if (enrollPollTimer) clearInterval(enrollPollTimer);
+  const statusEl = document.getElementById('e-poll-status');
 
-        function beginPoll(targetId, step) {
-            if (enrollPollTimer) clearInterval(enrollPollTimer);
-            _pollStep = step;
-            _prevStatus = step === 1 ? 'IDLE' : 'WAITING';
+  enrollPollTimer = setInterval(async () => {
+    try {
+      const res = await apiGet({ action: 'check_command' });
 
-            enrollPollTimer = setInterval(async () => {
-                try {
-                    const res = await apiGet({ action: 'check_command' });
-                    const statusEl = document.getElementById('e-poll-status');
-                    if (statusEl) statusEl.textContent = `Status: ${res.status} — ID: ${res.target_id}`;
+      // When command transitions out of WAITING, hardware has finished
+      if (res.status === 'IDLE' || (res.target_id && res.target_id !== targetId)) {
+        clearInterval(enrollPollTimer);
+        setStepDot(1, 'done');
+        setStepDot(2, 'done');
+        setStepDot(3, 'done');
+        completeEnrollment();
+        return;
+      }
 
-                    if (_pollStep === 1) {
-                        if (res.status === 'WAITING' && _prevStatus === 'IDLE') {
-                            _prevStatus = 'WAITING';
-                        } else if (res.status === 'IDLE' && _prevStatus === 'WAITING') {
-                            clearInterval(enrollPollTimer);
-                            setStepDot(1, 'done');
-                            setStepDot(2, 'active');
-                            const titleEl = document.getElementById('e-step-title');
-                            const descEl = document.getElementById('e-step-desc');
-                            if (titleEl) titleEl.textContent = 'Step 2: Confirm Scan';
-                            if (descEl) descEl.textContent = 'Lift your finger, then place the SAME finger on the sensor again to confirm the biometric template.';
-                            if (statusEl) statusEl.textContent = 'Waiting for confirmation scan…';
-                            beginPoll(targetId, 2);
-                        }
-                    } else if (_pollStep === 2) {
-                        if (res.status === 'WAITING' && _prevStatus === 'IDLE') {
-                            _prevStatus = 'WAITING';
-                        } else if (res.status === 'IDLE' && _prevStatus === 'WAITING') {
-                            clearInterval(enrollPollTimer);
-                            setStepDot(2, 'done');
-                            setStepDot(3, 'done');
-                            completeEnrollment();
-                        }
-                    }
+      if (statusEl) statusEl.textContent = `ESP32 Active: Enrolling ID #${targetId}…`;
+      setStepDot(1, 'active');
+      setStepDot(2, 'active');
+    } catch (e) { /* keep polling */ }
+  }, 1500);
+}
 
-                    if (_prevStatus === 'IDLE' && res.status === 'WAITING') _prevStatus = 'WAITING';
-                    else if (res.status === 'IDLE') _prevStatus = 'IDLE';
+function setStepDot(num, state) {
+  const dot  = document.getElementById('sdot-' + num);
+  if (!dot) return;
+  dot.className = 'step-dot ' + state;
+  if (state === 'done' && num < 3) {
+    const line = document.getElementById('sline-' + num);
+    if (line) line.classList.add('done');
+  }
+  if (num === 3 && state === 'done') dot.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i>';
+  lucide.createIcons();
+}
 
-                } catch (e) { /* retry */ }
-            }, 2000);
-        }
+function completeEnrollment() {
+  document.getElementById('es-scan').classList.add('hidden');
+  document.getElementById('es-success').classList.remove('hidden');
+  const c = window._ec || {};
+  const nameEl = document.getElementById('suc-name');
+  const uEl    = document.getElementById('suc-username');
+  const pEl    = document.getElementById('suc-password');
+  if (nameEl) nameEl.textContent = c.name || '—';
+  if (uEl)    uEl.textContent    = c.username || '—';
+  if (pEl)    pEl.textContent    = c.temp_password || '—';
+  confetti({ particleCount: 130, spread: 90, origin: { y: 0.5 }, colors: ['#6366f1', '#34d399', '#fbbf24', '#a5b4fc'] });
+  showToast('Student enrolled successfully! 🎉', 'success');
+  lucide.createIcons();
+}
 
-        function setStepDot(num, state) {
-            const dot = document.getElementById('sdot-' + num);
-            if (!dot) return;
-            dot.className = 'step-dot ' + state;
-            if (state === 'done' && num < 3) {
-                const line = document.getElementById('sline-' + num);
-                if (line) line.classList.add('done');
-            }
-            if (num === 3 && state === 'done') dot.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i>';
-            lucide.createIcons();
-        }
+/* ─── SETTINGS ─── */
+async function fetchSettings() {
+  try {
+    const res = await apiGet({ action: 'get_settings' });
+    if (res.late_cutoff) {
+      document.getElementById('cutoff-time').value = res.late_cutoff;
+      document.getElementById('current-cutoff-display').textContent = res.late_cutoff;
+    }
+  } catch (e) { showToast('Failed to load settings.', 'error'); }
+}
 
-        function completeEnrollment() {
-            document.getElementById('es-scan').classList.add('hidden');
-            document.getElementById('es-success').classList.remove('hidden');
-            const c = window._ec || {};
-            const nameEl = document.getElementById('suc-name');
-            const uEl = document.getElementById('suc-username');
-            const pEl = document.getElementById('suc-password');
-            if (nameEl) nameEl.textContent = c.name || '—';
-            if (uEl) uEl.textContent = c.username || '—';
-            if (pEl) pEl.textContent = c.temp_password || '—';
-            confetti({ particleCount: 130, spread: 90, origin: { y: 0.5 }, colors: ['#6366f1', '#34d399', '#fbbf24', '#a5b4fc'] });
-            showToast('Student enrolled successfully! 🎉', 'success');
-            lucide.createIcons();
-        }
+async function saveCutoff() {
+  const late_cutoff = document.getElementById('cutoff-time').value;
+  if (!late_cutoff) { showToast('Please select a valid cutoff time.', 'warning'); return; }
+  try {
+    const res = await apiGet({ action: 'update_settings', late_cutoff });
+    if (res.status === 'SETTINGS_UPDATED') {
+      document.getElementById('current-cutoff-display').textContent = res.late_cutoff;
+      showToast('Cutoff saved: ' + res.late_cutoff, 'success');
+    }
+  } catch (e) { showToast('Failed to save settings.', 'error'); }
+}
 
-        /* ─── SETTINGS ─── */
-        async function fetchSettings() {
-            try {
-                const res = await apiGet({ action: 'get_settings' });
-                if (res.late_cutoff) {
-                    document.getElementById('cutoff-time').value = res.late_cutoff;
-                    document.getElementById('current-cutoff-display').textContent = res.late_cutoff;
-                }
-            } catch (e) { showToast('Failed to load settings.', 'error'); }
-        }
+async function checkSystemStatus() {
+  const ids = ['status-sheets', 'status-esp', 'status-sensor'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.className = 'badge'; el.style.cssText = 'background:#1e293b;color:#475569;border:1px solid #334155;'; el.innerHTML = `<i data-lucide="loader-2" style="width:10px;height:10px;animation:spin 1s linear infinite;"></i> Checking…`; }
+  });
+  lucide.createIcons();
+  try {
+    await apiGet({ action: 'check_command' });
+    setTimeout(() => {
+      const online = (id, label) => {
+        const el = document.getElementById(id);
+        if (el) { el.className = 'badge badge-present'; el.style.cssText = ''; el.innerHTML = `<i data-lucide="check-circle" style="width:10px;height:10px;"></i> ${label}`; }
+      };
+      online('status-sheets', 'Online');
+      online('status-esp', 'Polling');
+      online('status-sensor', 'Active');
+      lucide.createIcons();
+      showToast('All systems operational.', 'success');
+    }, 600);
+  } catch (e) {
+    const offline = (id, label) => {
+      const el = document.getElementById(id);
+      if (el) { el.className = 'badge badge-absent'; el.style.cssText = ''; el.innerHTML = `<i data-lucide="x-circle" style="width:10px;height:10px;"></i> ${label}`; }
+    };
+    offline('status-sheets', 'Offline');
+    offline('status-esp', 'Unreachable');
+    offline('status-sensor', 'Unknown');
+    lucide.createIcons();
+    showToast('API unreachable. Check network.', 'error');
+  }
+}
 
-        async function saveCutoff() {
-            const late_cutoff = document.getElementById('cutoff-time').value;
-            if (!late_cutoff) { showToast('Please select a valid cutoff time.', 'warning'); return; }
-            try {
-                const res = await apiPost({ type: 'update_settings', late_cutoff });
-                if (res.status === 'SETTINGS_UPDATED') {
-                    document.getElementById('current-cutoff-display').textContent = res.late_cutoff;
-                    showToast('Cutoff saved: ' + res.late_cutoff, 'success');
-                }
-            } catch (e) { showToast('Failed to save settings.', 'error'); }
-        }
+/* ─── STUDENT PORTAL ─── */
+function populateStudentView() {
+  if (!session) return;
+  const name    = session.name || 'Student';
+  const roll    = session.roll_no || '—';
+  const present = parseInt(session.present)    || 0;
+  const late    = parseInt(session.late)       || 0;
+  const total   = parseInt(session.total)      || 0;
+  const pct     = parseFloat(session.percentage) || 0;
+  const absent  = Math.max(0, total - present - late);
 
-        async function checkSystemStatus() {
-            const ids = ['status-sheets', 'status-esp', 'status-sensor'];
-            ids.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) { el.className = 'badge'; el.style.cssText = 'background:#1e293b;color:#475569;border:1px solid #334155;'; el.innerHTML = `<i data-lucide="loader-2" style="width:10px;height:10px;animation:spin 1s linear infinite;"></i> Checking…`; }
-            });
-            lucide.createIcons();
-            try {
-                await apiGet({ action: 'check_command' });
-                setTimeout(() => {
-                    const online = (id, label) => {
-                        const el = document.getElementById(id);
-                        if (el) { el.className = 'badge badge-present'; el.style.cssText = ''; el.innerHTML = `<i data-lucide="check-circle" style="width:10px;height:10px;"></i> ${label}`; }
-                    };
-                    online('status-sheets', 'Online');
-                    online('status-esp', 'Polling');
-                    online('status-sensor', 'Active');
-                    lucide.createIcons();
-                    showToast('All systems operational.', 'success');
-                }, 600);
-            } catch (e) {
-                const offline = (id, label) => {
-                    const el = document.getElementById(id);
-                    if (el) { el.className = 'badge badge-absent'; el.style.cssText = ''; el.innerHTML = `<i data-lucide="x-circle" style="width:10px;height:10px;"></i> ${label}`; }
-                };
-                offline('status-sheets', 'Offline');
-                offline('status-esp', 'Unreachable');
-                offline('status-sensor', 'Unknown');
-                lucide.createIcons();
-                showToast('API unreachable. Check network.', 'error');
-            }
-        }
+  document.getElementById('student-welcome-name').textContent = `Welcome back, ${name}!`;
+  document.getElementById('student-roll-display').textContent = `Roll No: ${roll}`;
+  document.getElementById('student-avatar').textContent = name[0].toUpperCase();
+  document.getElementById('s-total').textContent   = total;
+  document.getElementById('s-present').textContent = present;
+  document.getElementById('s-late').textContent    = late;
+  document.getElementById('s-absent').textContent  = absent;
 
-        /* ─── STUDENT PORTAL ─── */
-        function populateStudentView() {
-            if (!session) return;
-            const name = session.name || 'Student';
-            const roll = session.roll_no || '—';
-            const present = parseInt(session.present) || 0;
-            const late = parseInt(session.late) || 0;
-            const total = parseInt(session.total) || 0;
-            const pct = parseFloat(session.percentage) || 0;
-            const absent = Math.max(0, total - present - late);
+  const circ = 2 * Math.PI * 73;
+  const offset = circ - (pct / 100) * circ;
+  const ring  = document.getElementById('gauge-ring');
+  const badge = document.getElementById('gauge-status-badge');
+  document.getElementById('gauge-pct').textContent = pct.toFixed(1) + '%';
+  setTimeout(() => {
+    ring.style.strokeDashoffset = offset;
+    if (pct >= 75) {
+      ring.style.stroke = '#10b981';
+      badge.style.cssText = 'background:rgba(5,150,105,0.12);color:#34d399;border:1px solid rgba(5,150,105,0.22);';
+      badge.textContent = '✓ Eligible (≥75%)';
+    } else {
+      ring.style.stroke = '#e11d48';
+      badge.style.cssText = 'background:rgba(225,29,72,0.12);color:#f87171;border:1px solid rgba(225,29,72,0.22);';
+      badge.textContent = '✗ Below Threshold';
+    }
+  }, 150);
 
-            document.getElementById('student-welcome-name').textContent = `Welcome back, ${name}!`;
-            document.getElementById('student-roll-display').textContent = `Roll No: ${roll}`;
-            document.getElementById('student-avatar').textContent = name[0].toUpperCase();
-            document.getElementById('s-total').textContent = total;
-            document.getElementById('s-present').textContent = present;
-            document.getElementById('s-late').textContent = late;
-            document.getElementById('s-absent').textContent = absent;
+  if (pct < 75) {
+    const needed = Math.max(0, Math.ceil((0.75 * total - (present + late)) / 0.25));
+    document.getElementById('shortfall-msg').textContent =
+      `You need to attend ${needed} more consecutive class${needed !== 1 ? 'es' : ''} to reach the 75% eligibility threshold.`;
+    document.getElementById('shortfall-banner').classList.remove('hidden');
+  }
+  lucide.createIcons();
+}
 
-            const circ = 2 * Math.PI * 73;
-            const offset = circ - (pct / 100) * circ;
-            const ring = document.getElementById('gauge-ring');
-            const badge = document.getElementById('gauge-status-badge');
-            document.getElementById('gauge-pct').textContent = pct.toFixed(1) + '%';
-            setTimeout(() => {
-                ring.style.strokeDashoffset = offset;
-                if (pct >= 75) {
-                    ring.style.stroke = '#10b981';
-                    badge.style.cssText = 'background:rgba(5,150,105,0.12);color:#34d399;border:1px solid rgba(5,150,105,0.22);';
-                    badge.textContent = '✓ Eligible (≥75%)';
-                } else {
-                    ring.style.stroke = '#e11d48';
-                    badge.style.cssText = 'background:rgba(225,29,72,0.12);color:#f87171;border:1px solid rgba(225,29,72,0.22);';
-                    badge.textContent = '✗ Below Threshold';
-                }
-            }, 150);
+/* ─── API HELPERS ─── */
+async function apiGet(params) {
+  const url = API_URL + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
 
-            if (pct < 75) {
-                const needed = Math.max(0, Math.ceil((0.75 * total - (present + late)) / 0.25));
-                document.getElementById('shortfall-msg').textContent =
-                    `You need to attend ${needed} more consecutive class${needed !== 1 ? 'es' : ''} to reach the 75% eligibility threshold.`;
-                document.getElementById('shortfall-banner').classList.remove('hidden');
-            }
-            lucide.createIcons();
-        }
+/* ─── MODAL HELPERS ─── */
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
 
-        /* ─── API HELPERS ─── */
-        async function apiPost(payload) {
-            if (payload.type === 'login') {
-                return apiGet({ action: 'login', username: payload.username, password: payload.password });
-            }
-            if (payload.type === 'update_settings') {
-                return apiGet({ action: 'update_settings_get', late_cutoff: payload.late_cutoff });
-            }
-            if (payload.type === 'queue_enroll') {
-                return apiGet({ action: 'queue_enroll_get', name: payload.name, roll_no: payload.roll_no });
-            }
-            if (payload.type === 'queue_delete') {
-                return apiGet({ action: 'queue_delete_get', id: payload.id });
-            }
+function closeAllModals() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+}
 
-            const res = await fetch(API_URL, {
-                method: 'POST',
-                headers: POST_HEADERS,
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return res.json();
-        }
+/* ─── TOAST ─── */
+function showToast(msg, type = 'info', duration = 4500) {
+  const icons = { success: 'check-circle-2', error: 'alert-circle', info: 'info', warning: 'alert-triangle' };
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i data-lucide="${icons[type] || 'info'}" style="width:15px;height:15px;flex-shrink:0;"></i><span>${esc(msg)}</span>`;
+  container.appendChild(el);
+  lucide.createIcons();
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(16px)';
+    setTimeout(() => el.remove(), 350);
+  }, duration);
+}
 
-        async function apiGet(params) {
-            const url = API_URL + '?' + new URLSearchParams(params).toString();
-            const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return res.json();
-        }
+/* ─── UTILITIES ─── */
+function esc(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
-        /* ─── MODAL HELPERS ─── */
-        function closeModal(id) {
-            const el = document.getElementById(id);
-            if (el) el.remove();
-        }
-
-        function closeAllModals() {
-            document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
-        }
-
-        /* ─── TOAST ─── */
-        function showToast(msg, type = 'info', duration = 4500) {
-            const icons = { success: 'check-circle-2', error: 'alert-circle', info: 'info', warning: 'alert-triangle' };
-            const container = document.getElementById('toast-container');
-            const el = document.createElement('div');
-            el.className = `toast ${type}`;
-            el.innerHTML = `<i data-lucide="${icons[type] || 'info'}" style="width:15px;height:15px;flex-shrink:0;"></i><span>${esc(msg)}</span>`;
-            container.appendChild(el);
-            lucide.createIcons();
-            setTimeout(() => {
-                el.style.opacity = '0';
-                el.style.transform = 'translateX(16px)';
-                setTimeout(() => el.remove(), 350);
-            }, duration);
-        }
-
-        /* ─── UTILITIES ─── */
-        function esc(str) {
-            if (str == null) return '';
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        }
-
-        function fmt12h(t) {
-            if (!t) return '—';
-            const parts = String(t).split(':');
-            if (parts.length >= 2) {
-                let h = parseInt(parts[0]);
-                const m = parts[1].padStart(2, '0');
-                const ap = h >= 12 ? 'PM' : 'AM';
-                h = h % 12 || 12;
-                return `${String(h).padStart(2, '0')}:${m} ${ap}`;
-            }
-            return t;
-        }
-    </script>
+function fmt12h(t) {
+  if (!t || t === '--:--') return '--:--';
+  t = String(t).trim();
+  if (t.toUpperCase().includes('AM') || t.toUpperCase().includes('PM')) return t;
+  const parts = t.split(':');
+  if (parts.length >= 2) {
+    let h = parseInt(parts[0], 10);
+    const m = parts[1].padStart(2, '0');
+    const ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${String(h).padStart(2, '0')}:${m} ${ap}`;
+  }
+  return t;
+}
+</script>
 </body>
-
 </html>
